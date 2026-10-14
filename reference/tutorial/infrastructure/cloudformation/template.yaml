@@ -1,0 +1,402 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Slack KB — Serverless record logging and retrieval system
+
+Parameters:
+  DeploymentBucketName:
+    Type: String
+    Description: S3 bucket containing Lambda deployment packages
+
+  SlackSigningSecretArn:
+    Type: String
+    Description: Secrets Manager ARN for the Slack signing secret
+
+  SlackBotTokenArn:
+    Type: String
+    Description: Secrets Manager ARN for the Slack bot token (xoxb-)
+
+  AnthropicApiKeyArn:
+    Type: String
+    Description: Secrets Manager ARN for the Anthropic API key
+
+  SlackEscalationsChannelId:
+    Type: String
+    Description: Slack channel ID for High/Critical escalation notifications
+    Default: ''
+
+  SnsEscalationEmail:
+    Type: String
+    Description: Email address for Critical severity SNS notifications
+    Default: ''
+
+Resources:
+
+  # ---------------------------------------------------------------------------
+  # Storage
+  # ---------------------------------------------------------------------------
+
+  RecordsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'skb-records-${AWS::AccountId}-${AWS::Region}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
+  RecordsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: skb-records
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: record_id
+          AttributeType: S
+        - AttributeName: thread_ts
+          AttributeType: S
+        - AttributeName: entity_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: record_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: thread_ts-index
+          KeySchema:
+            - AttributeName: thread_ts
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: entity_id-timestamp-index
+          KeySchema:
+            - AttributeName: entity_id
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      # TTL attribute — enable in Phase 2 via console or CLI for lifecycle management
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: false
+
+  # ---------------------------------------------------------------------------
+  # Escalation
+  # ---------------------------------------------------------------------------
+
+  EscalationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: skb-escalations
+
+  EscalationEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasEscalationEmail
+    Properties:
+      TopicArn: !Ref EscalationTopic
+      Protocol: email
+      Endpoint: !Ref SnsEscalationEmail
+
+  # ---------------------------------------------------------------------------
+  # Dead Letter Queues (catch silent async Lambda failures)
+  # ---------------------------------------------------------------------------
+
+  RoutingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: skb-routing-dlq
+      MessageRetentionPeriod: 1209600  # 14 days
+
+  ConversationDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: skb-conversation-dlq
+      MessageRetentionPeriod: 1209600
+
+  # ---------------------------------------------------------------------------
+  # IAM Roles — least-privilege, one role per Lambda
+  # ---------------------------------------------------------------------------
+
+  IngestionLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: skb-ingestion-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: IngestionPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref SlackSigningSecretArn
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource:
+                  - !GetAtt RoutingFunction.Arn
+                  - !GetAtt ConversationFunction.Arn
+
+  RoutingLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: skb-routing-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: RoutingPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref AnthropicApiKeyArn
+                  - !Ref SlackBotTokenArn
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub '${RecordsBucket.Arn}/records/*'
+              - Effect: Allow
+                Action: dynamodb:PutItem
+                Resource: !GetAtt RecordsTable.Arn
+              - Effect: Allow
+                Action: dynamodb:Query
+                Resource:
+                  - !Sub '${RecordsTable.Arn}/index/entity_id-timestamp-index'
+              - Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref EscalationTopic
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt RoutingDLQ.Arn
+
+  ConversationLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: skb-conversation-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ConversationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref AnthropicApiKeyArn
+                  - !Ref SlackBotTokenArn
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub '${RecordsBucket.Arn}/records/*'
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                Resource:
+                  - !GetAtt RecordsTable.Arn
+                  - !Sub '${RecordsTable.Arn}/index/thread_ts-index'
+                  - !Sub '${RecordsTable.Arn}/index/entity_id-timestamp-index'
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt ConversationDLQ.Arn
+
+  # ---------------------------------------------------------------------------
+  # Lambda Functions
+  # ---------------------------------------------------------------------------
+
+  IngestionFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: skb-ingestion
+      Runtime: python3.12
+      Handler: handler.handler
+      Role: !GetAtt IngestionLambdaRole.Arn
+      Timeout: 10
+      MemorySize: 128
+      Code:
+        S3Bucket: !Ref DeploymentBucketName
+        S3Key: lambda/ingestion.zip
+      Environment:
+        Variables:
+          ROUTING_FUNCTION_NAME: !Ref RoutingFunction
+          CONVERSATION_FUNCTION_NAME: !Ref ConversationFunction
+          SLACK_SIGNING_SECRET_ARN: !Ref SlackSigningSecretArn
+
+  RoutingFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: skb-routing
+      Runtime: python3.12
+      Handler: handler.handler
+      Role: !GetAtt RoutingLambdaRole.Arn
+      Timeout: 60
+      MemorySize: 512
+      Code:
+        S3Bucket: !Ref DeploymentBucketName
+        S3Key: lambda/routing.zip
+      Environment:
+        Variables:
+          RECORDS_TABLE: !Ref RecordsTable
+          RECORDS_BUCKET: !Ref RecordsBucket
+          ESCALATION_TOPIC_ARN: !Ref EscalationTopic
+          ESCALATIONS_CHANNEL_ID: !Ref SlackEscalationsChannelId
+          ANTHROPIC_API_KEY_ARN: !Ref AnthropicApiKeyArn
+          SLACK_BOT_TOKEN_ARN: !Ref SlackBotTokenArn
+      DeadLetterConfig:
+        TargetArn: !GetAtt RoutingDLQ.Arn
+
+  ConversationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: skb-conversation
+      Runtime: python3.12
+      Handler: handler.handler
+      Role: !GetAtt ConversationLambdaRole.Arn
+      Timeout: 60
+      MemorySize: 512
+      Code:
+        S3Bucket: !Ref DeploymentBucketName
+        S3Key: lambda/conversation.zip
+      Environment:
+        Variables:
+          RECORDS_TABLE: !Ref RecordsTable
+          RECORDS_BUCKET: !Ref RecordsBucket
+          ANTHROPIC_API_KEY_ARN: !Ref AnthropicApiKeyArn
+          SLACK_BOT_TOKEN_ARN: !Ref SlackBotTokenArn
+      DeadLetterConfig:
+        TargetArn: !GetAtt ConversationDLQ.Arn
+
+  # ---------------------------------------------------------------------------
+  # API Gateway
+  # ---------------------------------------------------------------------------
+
+  SlackEventsApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: skb-slack-events
+      Description: Receives Slack Events API webhooks for Slack KB
+
+  SlackEventsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref SlackEventsApi
+      ParentId: !GetAtt SlackEventsApi.RootResourceId
+      PathPart: slack
+
+  SlackEventsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref SlackEventsApi
+      ResourceId: !Ref SlackEventsResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionArn}/invocations'
+          - FunctionArn: !GetAtt IngestionFunction.Arn
+
+  SlackEventsDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: SlackEventsMethod
+    Properties:
+      RestApiId: !Ref SlackEventsApi
+
+  SlackEventsStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref SlackEventsApi
+      DeploymentId: !Ref SlackEventsDeployment
+      StageName: prod
+
+  IngestionFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt IngestionFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:apigateway:${AWS::Region}::/restapis/${SlackEventsApi}/stages/prod/*/POST/slack'
+
+  # ---------------------------------------------------------------------------
+  # CloudWatch Log Groups (explicit — controls retention)
+  # ---------------------------------------------------------------------------
+
+  IngestionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/skb-ingestion
+      RetentionInDays: 30
+
+  RoutingLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/skb-routing
+      RetentionInDays: 30
+
+  ConversationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/skb-conversation
+      RetentionInDays: 30
+
+# ---------------------------------------------------------------------------
+# Conditions
+# ---------------------------------------------------------------------------
+
+Conditions:
+  HasEscalationEmail: !Not [!Equals [!Ref SnsEscalationEmail, '']]
+
+# ---------------------------------------------------------------------------
+# Outputs
+# ---------------------------------------------------------------------------
+
+Outputs:
+  SlackEventsEndpoint:
+    Description: Configure this URL in your Slack App under Event Subscriptions
+    Value: !Sub 'https://${SlackEventsApi}.execute-api.${AWS::Region}.amazonaws.com/prod/slack'
+
+  RecordsBucket:
+    Description: S3 bucket storing full markdown records
+    Value: !Ref RecordsBucket
+
+  RecordsTable:
+    Description: DynamoDB table storing record metadata
+    Value: !Ref RecordsTable
+
+  EscalationTopicArn:
+    Description: SNS topic ARN for Critical severity notifications
+    Value: !Ref EscalationTopic
+
+  RoutingDLQUrl:
+    Description: SQS DLQ URL for failed routing Lambda invocations
+    Value: !Ref RoutingDLQ
+
+  ConversationDLQUrl:
+    Description: SQS DLQ URL for failed conversation Lambda invocations
+    Value: !Ref ConversationDLQ

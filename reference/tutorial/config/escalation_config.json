@@ -1,0 +1,10 @@
+{
+  "escalation_thresholds": {
+    "slack_escalations": ["High", "Critical"],
+    "sns_notification": ["Critical"]
+  },
+  "poc_entity_defaults": {
+    "context": "Team / System / Service",
+    "entity_type": "Generic"
+  }
+}

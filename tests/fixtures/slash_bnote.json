@@ -1,0 +1,14 @@
+{
+  "token": "deprecated-verification-token",
+  "team_id": "T000TEST",
+  "team_domain": "slackkb-test",
+  "channel_id": "C000TEST",
+  "channel_name": "incidents",
+  "user_id": "U000TEST",
+  "user_name": "tester",
+  "command": "/bnote",
+  "text": "db connection timeouts on /api/orders since 14:05",
+  "api_app_id": "A000TEST",
+  "response_url": "https://hooks.slack.invalid/commands/T000TEST/1/abc",
+  "trigger_id": "1111.2222.abcdef"
+}

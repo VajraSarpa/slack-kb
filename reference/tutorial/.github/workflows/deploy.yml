@@ -1,0 +1,114 @@
+name: Deploy Slack KB
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  STACK_NAME: slack-kb
+
+jobs:
+  deploy:
+    name: Package and deploy to AWS
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # Required for OIDC authentication
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve deployment bucket name
+        id: bucket
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "name=skb-deploy-${ACCOUNT_ID}" >> $GITHUB_OUTPUT
+
+      - name: Ensure deployment bucket exists
+        run: |
+          BUCKET="${{ steps.bucket.outputs.name }}"
+          aws s3 mb "s3://${BUCKET}" --region "$AWS_REGION" 2>/dev/null || true
+          aws s3api put-public-access-block \
+            --bucket "$BUCKET" \
+            --public-access-block-configuration \
+              "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true" \
+            2>/dev/null || true
+
+      - name: Package and upload Lambda functions
+        run: |
+          BUCKET="${{ steps.bucket.outputs.name }}"
+          for fn in ingestion routing conversation; do
+            TMP_DIR=$(mktemp -d)
+            cp -r lambda/$fn/. $TMP_DIR/
+
+            if [ "$fn" = "routing" ]; then
+              cp prompts/structure_incident.txt $TMP_DIR/
+              cp config/escalation_config.json $TMP_DIR/
+            fi
+            if [ "$fn" = "conversation" ]; then
+              cp prompts/conversation.txt $TMP_DIR/
+            fi
+
+            if [ -s lambda/$fn/requirements.txt ]; then
+              pip install -r lambda/$fn/requirements.txt \
+                -t $TMP_DIR/ -q --no-cache-dir
+            fi
+
+            (cd $TMP_DIR && zip -r /tmp/skb-${fn}.zip . -q)
+            rm -rf $TMP_DIR
+
+            aws s3 cp /tmp/skb-${fn}.zip "s3://${BUCKET}/lambda/${fn}.zip"
+            echo "Uploaded lambda/${fn}.zip"
+          done
+
+      - name: Deploy CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --template-file infrastructure/cloudformation/template.yaml \
+            --stack-name "$STACK_NAME" \
+            --region "$AWS_REGION" \
+            --parameter-overrides \
+              DeploymentBucketName="${{ steps.bucket.outputs.name }}" \
+              SlackSigningSecretArn="${{ secrets.SLACK_SIGNING_SECRET_ARN }}" \
+              SlackBotTokenArn="${{ secrets.SLACK_BOT_TOKEN_ARN }}" \
+              AnthropicApiKeyArn="${{ secrets.ANTHROPIC_API_KEY_ARN }}" \
+              SlackEscalationsChannelId="${{ secrets.SLACK_ESCALATIONS_CHANNEL_ID }}" \
+              SnsEscalationEmail="${{ secrets.SNS_ESCALATION_EMAIL }}" \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset
+
+      - name: Update Lambda function code
+        run: |
+          BUCKET="${{ steps.bucket.outputs.name }}"
+          for fn in ingestion routing conversation; do
+            aws lambda update-function-code \
+              --function-name "skb-${fn}" \
+              --s3-bucket "$BUCKET" \
+              --s3-key "lambda/${fn}.zip" \
+              --region "$AWS_REGION" \
+              --output text --query 'FunctionName' > /dev/null
+            echo "Updated skb-${fn}"
+          done
+
+      - name: Print Slack Events endpoint
+        run: |
+          ENDPOINT=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --region "$AWS_REGION" \
+            --query "Stacks[0].Outputs[?OutputKey=='SlackEventsEndpoint'].OutputValue" \
+            --output text)
+          echo "Slack Events URL: $ENDPOINT"

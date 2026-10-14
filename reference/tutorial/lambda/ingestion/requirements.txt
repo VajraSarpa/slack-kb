@@ -1,0 +1,2 @@
+# Ingestion Lambda uses only boto3 (built into Lambda runtime) and Python stdlib.
+# No external dependencies required.
