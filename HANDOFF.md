@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-14, Phase 0 done + instructor skill installed; next: Phase 1 Step 6, Oct 15)
+# SlackKB handoff (updated 2026-10-15, Step 6 audit done; next: Step 7 SLICES.md)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -21,7 +21,10 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 - Suite: `uv run pytest` = **1 passed** (`test_smoke::test_package_imports`). `uv run ruff check src tests` = all clean.
 - Phase 0 complete except: **Vajra creates the fine-grained GitHub token on github.com** (Settings → Developer settings → Fine-grained tokens: Repository access `VajraSarpa/slack-kb` only; permissions **Contents: Read-only, Metadata: Read-only**; no other scopes). Save where personal profile reads it.
 - `slackkb-instructor` skill installed at `~/.claude/skills/slackkb-instructor/SKILL.md` (snapshot in-repo at `skills/slackkb-instructor/SKILL.md`). Invoke with `/slackkb-instructor` at the start of each session; it will read this file first.
-- No `prama task` runs yet. No ledger rows yet. `docs/task-ledger.md`, `docs/prama-field-notes.md`, `docs/SLICES.md` are empty templates.
+- 2026-10-15: Step 6 audit ran (`prama ask`, session `personal_cf139733`). Output saved at `docs/audit-A0.md` (2,184 words, over the 1,500 cap). Ledger row A0 logged; cost TBD from OpenRouter dashboard. Three citations spot-checked and held: `ingestion/handler.py:31-33` (blind retry drop), `routing/handler.py:79,119` (uuid4 + unconditional put_item), `template.yaml:175,215` (`records/*` resource scope).
+- Field notes: 4 lines (profiles/ not packaged; stale tool install; `ask` saves no answer/cost; content-hash obs ids collapse distinct empty searches).
+- Invoke `prama` with `--profile ~/Projects/Prama/profiles/personal.yaml` until the packaging fix lands in Prama. Shell needs `OPENROUTER_API_KEY` (see Prama HANDOFF for the export line). Pipe `ask` output through `| tee docs/<name>.md`; Pramā doesn't keep it.
+- `docs/SLICES.md` still an empty template.
 
 ## Locked decisions (D-001..D-008)
 - D-001 Fresh repo; `reference/tutorial/` is read-only reference, never a source of truth.
@@ -35,18 +38,18 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 
 Also open before Slice 5: pick the Bedrock model, verify its current ID during Step 6 audit, scope IAM to that ARN only.
 
-## Next: Step 6 — Audit the tutorial (Pramā, Oct 15)
+## Next: Step 7 — Vajra writes `docs/SLICES.md` (you)
 
-1. Copy the `prompts/00-audit.md` body verbatim from `~/Projects/PramaSlackKB/slackkb-prama-first-prompt.md` into `~/Projects/slack-kb/prompts/00-audit.md`, with **two additions under DEFECTS** (plan page 17):
-   - `- Retries: X-Slack-Retry-Num is sent by the Events API, not slash commands. For each handler, state which Slack surface calls it and whether it is retried.`
-   - `- Credentials: does the tutorial rely on long-lived IAM access keys?`
-2. Run: `uv run prama ask "$(cat prompts/00-audit.md)"` from `~/Projects/slack-kb`.
-3. Read the output in full. Spot-check **three citations** by opening the file at the cited line. Any citation that doesn't hold is a field-notes entry.
-4. Log **row A0** in `docs/task-ledger.md` with date, outcome, attempts, cost.
+Read `docs/audit-A0.md` in full, correct it, and write SLICES.md rows. Points to settle while writing:
+- The audit's slice plan (8 slices) diverges from the plan's slice map (Slices 1–9: modal, OKF to S3, Bedrock answer, retrieval, thread replies, SAM, observability). SLICES.md decides; the plan's map is the default.
+- Slice 1 file names: the plan's ladder uses `models.py`, `slack_verify.py`, `store.py`, `config.py`, `capture.py`; the audit proposes `settings.py`, `verify.py`. Pick one set.
+- Audit flags worth a DECISIONS line: blind retry drop loses messages (defect 2); prompt template `.replace()` injection (defect 4); thread lookup not scoped to channel (defect 7); planned Bedrock ARN mixes inference-profile ID with foundation-model ARN (`cicd-spec.md:164`), so look up the model ID before Slice 5.
 
-Then Step 7 (Vajra writes `docs/SLICES.md` from the audit), then Step 8 (Pramā rungs C1–C6).
+Then Step 8: rungs C1–C6 with `prama task`.
 
 ## Carry-overs for Phase 1
+- Every session: if Prama source changed since last run, `uv tool install --reinstall ~/Projects/Prama` before any `prama` command.
+- A0 cost: fill in from the OpenRouter dashboard (two runs, ~04:54 and ~04:57 local).
 - Before Step 6: confirm the audit prompt is in `prompts/00-audit.md` with both DEFECTS additions.
 - Before Step 8 (C5): save `prompts/01-slice-capture.md` from the first-prompt file with three edits (plan page 19): remove `tests/conftest.py` and `tests/fixtures/slash_bnote.json` from SCOPE; replace requirement 2 with the D-006 wording; add "handler returns the ack response; it never calls Slack's response_url".
 - Before Step 10 (C9): poisoned README branch is throwaway; after the task, `git branch -D calib/poison && chmod -R a-w reference/tutorial`.
