@@ -16,7 +16,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 
 ## State (2026-10-14, 23:10)
 - Repo: `VajraSarpa/slack-kb` (private), remote `origin`, branch `main` tracking `origin/main`.
-- Last substantive commit: `84a61b9` "Add slackkb-instructor skill + refresh handoff" (pushed). Prior: `8743100` HANDOFF.md added, `b3b21a4` Phase 0 scaffold.
+- Last substantive commit: `91b9a81` "Field notes: Step 6 harness gaps" (after `e4f3e1c` Step 6 audit). 3 commits ahead of origin, not pushed. Earlier: `84a61b9` instructor skill. Prior: `8743100` HANDOFF.md added, `b3b21a4` Phase 0 scaffold.
 - Convention: pure handoff-refresh commits don't re-update this SHA (would recurse forever). "Last substantive commit" means the latest commit that changed source, docs, or infra beyond this file.
 - Suite: `uv run pytest` = **1 passed** (`test_smoke::test_package_imports`). `uv run ruff check src tests` = all clean.
 - Phase 0 complete except: **Vajra creates the fine-grained GitHub token on github.com** (Settings → Developer settings → Fine-grained tokens: Repository access `VajraSarpa/slack-kb` only; permissions **Contents: Read-only, Metadata: Read-only**; no other scopes). Save where personal profile reads it.
@@ -24,7 +24,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 - 2026-10-15: Step 6 audit ran (`prama ask`, session `personal_cf139733`). Output saved at `docs/audit-A0.md` (2,184 words, over the 1,500 cap). Ledger row A0 logged; cost TBD from OpenRouter dashboard. Three citations spot-checked and held: `ingestion/handler.py:31-33` (blind retry drop), `routing/handler.py:79,119` (uuid4 + unconditional put_item), `template.yaml:175,215` (`records/*` resource scope).
 - Field notes: 4 lines (profiles/ not packaged; stale tool install; `ask` saves no answer/cost; content-hash obs ids collapse distinct empty searches).
 - Invoke `prama` with `--profile ~/Projects/Prama/profiles/personal.yaml` until the packaging fix lands in Prama. Shell needs `OPENROUTER_API_KEY` (see Prama HANDOFF for the export line). Pipe `ask` output through `| tee docs/<name>.md`; Pramā doesn't keep it.
-- `docs/SLICES.md` still an empty template.
+- `docs/SLICES.md` drafted (Claude wrote it at Vajra's request from the plan's slice map + A0 findings); 3 open items at the bottom. Vajra to review/edit.
 
 ## Locked decisions (D-001..D-008)
 - D-001 Fresh repo; `reference/tutorial/` is read-only reference, never a source of truth.
@@ -38,7 +38,9 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 
 Also open before Slice 5: pick the Bedrock model, verify its current ID during Step 6 audit, scope IAM to that ARN only.
 
-## Next: Step 7 — Vajra writes `docs/SLICES.md` (you)
+## Next: Step 7 — finish `docs/SLICES.md` (you)
+
+Draft is in place. Settle its three open items (two need DECISIONS.md lines first), then commit.
 
 Read `docs/audit-A0.md` in full, correct it, and write SLICES.md rows. Points to settle while writing:
 - The audit's slice plan (8 slices) diverges from the plan's slice map (Slices 1–9: modal, OKF to S3, Bedrock answer, retrieval, thread replies, SAM, observability). SLICES.md decides; the plan's map is the default.
@@ -89,3 +91,4 @@ Then Step 8: rungs C1–C6 with `prama task`.
 ## Deviations from the plan
 
 - 2026-10-14: Added `slackkb-instructor` skill (not called for in the plan). Mirrors Pramā's `prama-instructor` pattern: read HANDOFF.md first, update it at the close of every session. Enforcement is skill-only — no Stop hook. In-repo snapshot at `skills/slackkb-instructor/SKILL.md`, live copy at `~/.claude/skills/slackkb-instructor/SKILL.md`. Reinstall the live copy by `cp` from the snapshot if they drift.
+- 2026-10-15: `docs/SLICES.md` first draft written by Claude at Vajra's explicit request (role split says he authors it). He reviews and owns it from here.
