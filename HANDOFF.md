@@ -1,4 +1,4 @@
-# SlackKB handoff (written 2026-10-14, Phase 0 done; next: Phase 1 Step 6, Oct 15)
+# SlackKB handoff (updated 2026-10-14, Phase 0 done + instructor skill installed; next: Phase 1 Step 6, Oct 15)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -14,11 +14,12 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 - `acp.autoApprovePermissions` stays `ask`. `allowAll` bypasses the validity gate's human step — never set it.
 - `prama` is installed globally via `uv tool install ~/Projects/Prama`. If the harness source changes, reinstall.
 
-## State (2026-10-14, 23:00)
+## State (2026-10-14, 23:10)
 - Repo: `VajraSarpa/slack-kb` (private), remote `origin`, branch `main` tracking `origin/main`.
-- Last commit: `b3b21a4` "Phase 0: offline scaffold, fixtures, OKF seed, AGENTS.md" (pushed).
+- Last commit: `8743100` "Add HANDOFF.md for per-session continuity" (pushed). Prior: `b3b21a4` Phase 0 scaffold.
 - Suite: `uv run pytest` = **1 passed** (`test_smoke::test_package_imports`). `uv run ruff check src tests` = all clean.
 - Phase 0 complete except: **Vajra creates the fine-grained GitHub token on github.com** (Settings → Developer settings → Fine-grained tokens: Repository access `VajraSarpa/slack-kb` only; permissions **Contents: Read-only, Metadata: Read-only**; no other scopes). Save where personal profile reads it.
+- `slackkb-instructor` skill installed at `~/.claude/skills/slackkb-instructor/SKILL.md` (snapshot in-repo at `skills/slackkb-instructor/SKILL.md`). Invoke with `/slackkb-instructor` at the start of each session; it will read this file first.
 - No `prama task` runs yet. No ledger rows yet. `docs/task-ledger.md`, `docs/prama-field-notes.md`, `docs/SLICES.md` are empty templates.
 
 ## Locked decisions (D-001..D-008)
@@ -83,4 +84,4 @@ Then Step 7 (Vajra writes `docs/SLICES.md` from the audit), then Step 8 (Pramā 
 
 ## Deviations from the plan
 
-(None yet.)
+- 2026-10-14: Added `slackkb-instructor` skill (not called for in the plan). Mirrors Pramā's `prama-instructor` pattern: read HANDOFF.md first, update it at the close of every session. Enforcement is skill-only — no Stop hook. In-repo snapshot at `skills/slackkb-instructor/SKILL.md`, live copy at `~/.claude/skills/slackkb-instructor/SKILL.md`. Reinstall the live copy by `cp` from the snapshot if they drift.
