@@ -155,7 +155,7 @@ Short, direct, no flattery. Disagree when warranted. State what you see; don't p
 1. `git status` is clean, or uncommitted work is listed in `HANDOFF.md`'s **Deviations** section.
 2. Every new `prama ask` or `prama task` run has a row in `docs/task-ledger.md` with date, task_id, level, slice, outcome, attempts, cost, disposition, cause.
 3. Any Pramā defect noticed this session has a line in `docs/prama-field-notes.md`.
-4. `HANDOFF.md`'s **State**, **Next**, and **Carry-overs** sections match reality (last commit SHA, test count, what's done, what's blocking the next step). If anything changed D-###, SLICES.md, or `infra/`, note it under **Deviations from the plan**.
+4. `HANDOFF.md`'s **State**, **Next**, and **Carry-overs** sections match reality (last **substantive** commit SHA, test count, what's done, what's blocking the next step). Pure handoff-refresh commits don't re-update the SHA (that would recurse). If anything changed D-###, SLICES.md, or `infra/`, note it under **Deviations from the plan**.
 5. Give Vajra the commit command for the handoff and any other updated files (one commit per topic — don't bundle a slice merge with a handoff refresh). He runs git himself.
 
 Only after all five: end the turn.

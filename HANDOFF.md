@@ -16,7 +16,8 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 
 ## State (2026-10-14, 23:10)
 - Repo: `VajraSarpa/slack-kb` (private), remote `origin`, branch `main` tracking `origin/main`.
-- Last commit: `8743100` "Add HANDOFF.md for per-session continuity" (pushed). Prior: `b3b21a4` Phase 0 scaffold.
+- Last substantive commit: `84a61b9` "Add slackkb-instructor skill + refresh handoff" (pushed). Prior: `8743100` HANDOFF.md added, `b3b21a4` Phase 0 scaffold.
+- Convention: pure handoff-refresh commits don't re-update this SHA (would recurse forever). "Last substantive commit" means the latest commit that changed source, docs, or infra beyond this file.
 - Suite: `uv run pytest` = **1 passed** (`test_smoke::test_package_imports`). `uv run ruff check src tests` = all clean.
 - Phase 0 complete except: **Vajra creates the fine-grained GitHub token on github.com** (Settings → Developer settings → Fine-grained tokens: Repository access `VajraSarpa/slack-kb` only; permissions **Contents: Read-only, Metadata: Read-only**; no other scopes). Save where personal profile reads it.
 - `slackkb-instructor` skill installed at `~/.claude/skills/slackkb-instructor/SKILL.md` (snapshot in-repo at `skills/slackkb-instructor/SKILL.md`). Invoke with `/slackkb-instructor` at the start of each session; it will read this file first.
