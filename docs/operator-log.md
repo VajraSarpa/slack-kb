@@ -17,3 +17,10 @@ Logged after the fact; times approximate (local).
 - ~05:05 traced duplicate `obs_eb82569d8230` to content-hash ids (two empty searches). [manual verification; field note]
 - ~05:10 cost not recoverable from Pramā; ledger cost left TBD. [deferred to Vajra: OpenRouter dashboard]
 - ~05:20 drafted `docs/SLICES.md` at Vajra's explicit request; 3 open items left for him. [deferred to Vajra]
+
+## 2026-10-17 — Preflight before C1
+- preflight: HANDOFF "last substantive" says `5c9268e`, but `cc246b0` (skill + operator log) is substantive too → fix at close. [judgment]
+- preflight: install receipt Oct 15 04:52 vs Prama head `32fa8a4` (Oct 15 23:29); 7 code commits since (sandbox, worktree, agent, session, acp) → asked Vajra to reinstall. [workaround; Pramā doesn't warn on a stale install]
+- preflight: `~/.prama/projects/slack-kb.yaml` missing → needs `prama project init` + hand edit + `prama prepare` before any `task` with checks. Drafted contents for Vajra; he writes the file ("Only you edit this file"). [deferred to Vajra]
+- preflight: `OPENROUTER_API_KEY` can't be confirmed from operator shell; Vajra exports it in his. [judgment]
+- preflight: SLICES.md 3 open items still present; they gate Slice 2/7, not C1. [deferred to Vajra]

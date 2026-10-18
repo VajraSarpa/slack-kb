@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-15; Step 6 done, SLICES.md drafted; next: settle 3 open items, then Step 8 C1)
+# SlackKB handoff (updated 2026-10-17; preflight for C1 done, 3 blockers on Vajra; SLICES open items still open)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -14,9 +14,9 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 - `acp.autoApprovePermissions` stays `ask`. `allowAll` bypasses the validity gate's human step — never set it.
 - `prama` is installed globally via `uv tool install ~/Projects/Prama`. If the harness source changes, reinstall.
 
-## State (2026-10-15)
+## State (2026-10-17)
 - Repo: `VajraSarpa/slack-kb` (private), remote `origin`, branch `main` tracking `origin/main`.
-- Last substantive commit: `5c9268e` "Step 7: SLICES.md first draft". Before it: `91b9a81` field notes, `e4f3e1c` Step 6 audit, `84a61b9` instructor skill. Pushed; `main` in sync with origin. Prior: `8743100` HANDOFF.md added, `b3b21a4` Phase 0 scaffold.
+- Last substantive commit: `cc246b0` "Add prama-fieldtest operator skill + operator log". Before it: `5c9268e` "Step 7: SLICES.md first draft", `91b9a81` field notes, `e4f3e1c` Step 6 audit, `84a61b9` instructor skill. Pushed; `main` in sync with origin. Prior: `8743100` HANDOFF.md added, `b3b21a4` Phase 0 scaffold.
 - Convention: pure handoff-refresh commits don't re-update this SHA (would recurse forever). "Last substantive commit" means the latest commit that changed source, docs, or infra beyond this file.
 - Suite: `uv run pytest` = **1 passed** (`test_smoke::test_package_imports`). `uv run ruff check src tests` = all clean.
 - Phase 0 complete except: **Vajra creates the fine-grained GitHub token on github.com** (Settings → Developer settings → Fine-grained tokens: Repository access `VajraSarpa/slack-kb` only; permissions **Contents: Read-only, Metadata: Read-only**; no other scopes). Save where personal profile reads it.
@@ -26,6 +26,11 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 - Field notes: 4 lines (profiles/ not packaged; stale tool install; `ask` saves no answer/cost; content-hash obs ids collapse distinct empty searches).
 - Invoke `prama` with `--profile ~/Projects/Prama/profiles/personal.yaml` until the packaging fix lands in Prama. Shell needs `OPENROUTER_API_KEY` (see Prama HANDOFF for the export line). Pipe `ask` output through `| tee docs/<name>.md`; Pramā doesn't keep it.
 - `docs/SLICES.md` drafted (Claude wrote it at Vajra's request from the plan's slice map + A0 findings); 3 open items at the bottom. Vajra to review/edit.
+- 2026-10-17 preflight for C1 (logged in `docs/operator-log.md`). Results:
+  - **Install stale:** receipt Oct 15 04:52; Prama head `32fa8a4` (Oct 15 23:29) has 7 code commits since (sandbox, worktree, agent, session, acp). Reinstall needed.
+  - **`~/.prama/projects/slack-kb.yaml` missing.** Needed for `task --check`. Flow: `prama project init` → hand edit → `prama prepare`. Draft contents under Next.
+  - Profile path exists. API key not checkable from the operator shell.
+  - Open question to Vajra (unanswered): settle SLICES.md open items now, or run C1–C6 first and settle them before C11? Operator recommends C1–C6 first (items gate Slices 2/7, not C1).
 
 ## Locked decisions (D-001..D-008)
 - D-001 Fresh repo; `reference/tutorial/` is read-only reference, never a source of truth.
@@ -39,8 +44,26 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 
 Also open before Slice 5: pick the Bedrock model, verify its current ID during Step 6 audit, scope IAM to that ARN only.
 
-## Next: finish Step 7, then Step 8
+## Next: unblock C1, then Step 8 (Step 7 items can wait until before C11 if Vajra agrees)
 
+0. C1 blockers (Vajra, from `~/Projects/slack-kb`, one at a time):
+   1. `uv tool install --reinstall ~/Projects/Prama`
+   2. `prama project init`, then edit `~/.prama/projects/slack-kb.yaml` to:
+      ```yaml
+      path: /home/vajrasarpa/Projects/slack-kb
+      remote: <keep what init wrote>
+      profile: personal
+      trusted: true          # loads AGENTS.md as apta; C9 poisons README, not AGENTS.md
+      checks:
+      - python -m pytest
+      - python -m ruff check src tests
+      setup: uv venv --allow-existing --python python3 $PRAMA_ENV && UV_PROJECT_ENVIRONMENT=$PRAMA_ENV uv sync --frozen
+      lockfile: uv.lock
+      secret_globs: []
+      ```
+      (`setup` line is inferred; `prama prepare` confirms it.)
+   3. `prama prepare --profile ~/Projects/Prama/profiles/personal.yaml` → expect `ready: ...`; paste output.
+   4. Answer the open question in State (Step 7 items now, or before C11).
 1. Settle the three open items at the bottom of `docs/SLICES.md` (Vajra decides):
    - Error path (A0 #1): fold into Slice 2 (FAILED → ephemeral) or add Slice 2b. Write a DECISIONS.md line first.
    - Slice 7 depends on 6, or only 5? (If only 5, Slice 7 can run before D-008.)
