@@ -54,3 +54,7 @@ Logged after the fact; times approximate (local).
 - 13:30 confirmed `slackkb.pth` → main checkout src; in worktree: without PYTHONPATH collection error, with PYTHONPATH=src 5 passed; ruff clean either way; `git status` shows only the 2 in-scope files. Read the full diff. [manual verification]
 - 13:34 tested workaround without touching files: `pytest -o pythonpath=src` in the worktree → 5 passed; with src first on sys.path, `slackkb.models` resolves to the worktree file. Recommending Vajra add `pythonpath = ["src"]` to pyproject and rerun C1. [manual verification; workaround pending Vajra]
 - 13:45 session close: HANDOFF rewritten for a fresh session (State/Runs/open defects/Next/Carry-overs); C1 check deviation added to Deviations. Uncommitted work listed in commit command to Vajra. [judgment]
+
+## 2026-10-20 (later) — C1 rerun prep
+- preflight: git = handoff (`da79aec`, clean, tracks origin); install 12:25 vs Prama `a9d22b6` 12:20 → current; profile and `~/.prama/projects/slack-kb.yaml` present; API key: Vajra to confirm in his shell. [manual verification]
+- `~/.prama/worktrees/` holds 17 worktrees, not only `personal_6c24565c`. Cleanup (Next 5) needs `prama clean --help` read first. [observed; field note candidate: worktrees accumulate]
