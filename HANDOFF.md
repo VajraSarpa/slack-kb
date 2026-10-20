@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-20 evening; C1 passed + merged `430a886`; next: worktree cleanup, Prama defect #1, then C2 paired)
+# SlackKB handoff (updated 2026-10-20 night; C1 merged `430a886`; defect #1 fixed + reinstalled; next: C2 paired)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -71,9 +71,9 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 ## Next (start here)
 
 1. Preflight per `prama-fieldtest`. `git status`: main may still be ahead of origin; Vajra pushes.
-2. Worktree cleanup: dry run read 17:00 (operator-log). Only 2 of 18 worktrees are slack-kb's; `clean` is global (defect #10). Remove slack-kb's two by `--session` only (`personal_b0d5049b` merged; `personal_6c24565c` superseded). Never `--older-than 0 --yes` from here; it hits rupa/Mula/v3-lab.
-3. Prama work (Prama repo, prama-instructor): #1 done on `fix/editable-worktree`; after Vajra merges, `uv tool install --reinstall ~/Projects/Prama`. Keep pytest `pythonpath` (harmless). Then #2/#3 (absence claims), then #8 (commit subject). Optional app-side: a `.gitignore` (field note).
-4. C2 (`slack_verify.py`), paired with plain Claude Code: write and commit `prompts/c2-*.md` before either run (`docs/comparison.md`). Use `--check "python -m pytest tests/test_slack_verify.py"`. Commit run records before `prama apply`.
+2. Done 10-20: slack-kb worktrees removed 17:26 (`--session`). Remaining 16 belong to other repos; never `--older-than 0 --yes` from here.
+3. Done 10-20: defect #1 fix merged to Prama main `277b80a` (18:13), reinstalled 18:13:51. Keep pytest `pythonpath` (harmless). Still queued in Prama: #2/#3 (absence claims), then #8 (commit subject). Optional app-side: a `.gitignore`.
+4. **C2 (`slack_verify.py`), paired, Pramā first.** Prompt `prompts/c2-slack-verify.md` = plan p.17 verbatim + C1 conventions (uv-not-on-PATH line, fixtures read-only, "All checks"). Commit it before either run, don't edit between runs. `--check "python -m pytest tests/test_slack_verify.py"`. Commit run records before `prama apply`. Then the Claude Code side from the same base commit (`docs/comparison.md` step 2).
 5. Then C3, C4 …
 6. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
 7. Schedule: ladder dates slipped; Phase 1 gate Oct 21 can't hold. Vajra sets new dates (plan ends Nov 11).
