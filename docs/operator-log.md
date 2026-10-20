@@ -61,3 +61,7 @@ Logged after the fact; times approximate (local).
 - Vajra reviewed C1 choice 1: `created_at` stays str (+00:00). [deferred to Vajra → decided]
 - Vajra reviewed C1 choice 2: `NoteStatus` = CAPTURED only; ROUTED/FAILED wait for D-009. [deferred to Vajra → decided]
 - Vajra reviewed C1 choice 3: drop `response_url` from CaptureRequest (handler never calls it, C5 carry-over); edited prompt req 4. All three C1 choices settled. [deferred to Vajra → decided]
+- 20:45Z Vajra ran C1 r2 (personal_b0d5049b); read `docs/runs/c1-r2.md` + 38-line JSONL. ready_for_human, $0.2098. [observed]
+- verified in the worktree with the prepared env's python: (1) full suite 5 passed, ruff clean, `slackkb.models.__file__` = worktree path; (2) `git status` = only `src/slackkb/models.py` + `tests/test_models.py` (A); (3) stripped the noqa → ruff reports 2 errors (UP042), agent's inference held; (4) `CaptureRequest` has no `response_url`, `"URGENT"` test present and passing. [manual verification]
+- traced `reviewed: false` to `wiring.py:54` (`--review` only) and `cli.py:327` (apply always reviews). My handoff expectation was wrong; the review happens at `prama apply`. [judgment; field note]
+- `prama apply` refused: main had uncommitted run records (ledger, field notes, operator log, `docs/runs/c1-r2.md` from tee). Committing them first. Clean-tree guard is reasonable; it means the tee output for each run has to be committed before apply. [workaround]
