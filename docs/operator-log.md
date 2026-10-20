@@ -77,3 +77,12 @@ Logged after the fact; times approximate (local).
 - 17:30 probed defect #1 before fixing: temp detached worktree in scratchpad, `prama.sandbox.run_sandboxed` with the slack-kb env; main's src not visible in the sandbox, import fails loudly. Corrected the field note; removed the temp worktree. [manual verification]
 - 18:05 live check of the fix (temp detached worktree, removed after): binds `wt/src → slack-kb/src`; import from `/` works; `pytest -o pythonpath=` 5 passed; `git status` works. [manual verification]
 - my step-1 script used a relative path; Vajra ran it from slack-kb, so the fix branch was created here. He deleted it; nothing else changed. [operator error]
+
+## 2026-10-20 (night) — C2, Pramā side of the pair
+- preflight: install 18:13:51 vs Prama `277b80a` 18:13:11 → current; profile + project yaml + env present; key: Vajra's shell. git `f37d7ce`, clean = base for both sides. [manual verification]
+- prompt `prompts/c2-slack-verify.md` = plan p.17 + C1 conventions (uv-not-on-PATH, fixtures read-only, "All checks"); left out isBase64Encoded/form decoding (C5's job) and where SignatureError lives (fair test for both sides). Committed `f37d7ce` before either run. [judgment]
+- command: `prama task … --check "python -m pytest tests/test_slack_verify.py" --scope "src/slackkb/slack_verify.py, tests/test_slack_verify.py" --profile <path> | tee docs/runs/c2.md`. [workaround: profile path, python -m]
+- read JSONL (34 lines): all gates rule-decided, T0 reads / T1 writes / T2 commands; tests written and run before the implementation; session_end ready_for_human, $0.272096. Wall 0m39s from `prama stats`. [observed]
+- verified in the worktree with the env python: 17 passed, ruff clean; `git status` = only the two scoped files (A); no logging/print in slack_verify.py. [manual verification]
+- diff read notes for Vajra: base string uses the parsed int, not the raw header (harmless, same as Slack for well-formed headers); `_event()` wrapper is redundant; `test_sign_helper_matches_expected_format` tests conftest, not slackkb. 4 tests beyond the 6 required (tampered body, boundary, non-integer ts, sign helper). [judgment]
+- not running apply yet: comparison step 4 wants both diffs before either merges. [judgment]

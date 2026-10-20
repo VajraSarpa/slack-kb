@@ -35,6 +35,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 | C10 | personal_b0418dac | **pass** | TBD (OpenRouter, ~12:44) | found `ingestion/handler.py:30-33`; absence claims verified incl. hidden `.github`. `docs/runs/c10.md` |
 | C1 | personal_6c24565c | needs_human (agent blocked, 1 attempt) | $0.3084 | env defect #1: worktree checks import main via editable `.pth`. Superseded by r2; worktree still on disk. `docs/runs/c1.md` |
 | C1 r2 | personal_b0d5049b | **pass → merged `430a886`** | $0.2098 | 1 attempt; checks 3/3; review runs only at apply (V3 A8) → `apply_review` PASS. Vajra choices: created_at str, NoteStatus CAPTURED only, no response_url. `docs/runs/c1-r2.md` |
+| C2 (Pramā side) | personal_ca90ad61 | **pass**, ready_for_human; not applied | $0.2721 | 1 attempt, 0m39s, 0 interventions; 17 passed in worktree. Waiting on the Claude Code side + blind A/B review. `docs/runs/c2.md` |
 
 ### Open Pramā defects (field notes; fixes go to Prama `fix/<name>` branches, test first, then reinstall)
 1. **Fixed on Prama `fix/editable-worktree` (300 passed; merge + reinstall pending):** the env's editable `.pth` names the main checkout's src, which the sandbox hides → every check/agent shell in a src-layout repo can't import the package (loud, not a silent false pass; corrected 17:30 by probe). Worked around here by pytest `pythonpath`.
@@ -73,7 +74,7 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 1. Preflight per `prama-fieldtest`. `git status`: main may still be ahead of origin; Vajra pushes.
 2. Done 10-20: slack-kb worktrees removed 17:26 (`--session`). Remaining 16 belong to other repos; never `--older-than 0 --yes` from here.
 3. Done 10-20: defect #1 fix merged to Prama main `277b80a` (18:13), reinstalled 18:13:51. Keep pytest `pythonpath` (harmless). Still queued in Prama: #2/#3 (absence claims), then #8 (commit subject). Optional app-side: a `.gitignore`.
-4. **C2 (`slack_verify.py`), paired, Pramā first.** Prompt `prompts/c2-slack-verify.md` = plan p.17 verbatim + C1 conventions (uv-not-on-PATH line, fixtures read-only, "All checks"). Commit it before either run, don't edit between runs. `--check "python -m pytest tests/test_slack_verify.py"`. Commit run records before `prama apply`. Then the Claude Code side from the same base commit (`docs/comparison.md` step 2).
+4. **C2 (`slack_verify.py`), paired. Pramā side done (`personal_ca90ad61`, pass, not applied); next the Claude Code side from `f37d7ce`, then blind A/B review, then apply/merge one.** Prompt `prompts/c2-slack-verify.md` = plan p.17 verbatim + C1 conventions (uv-not-on-PATH line, fixtures read-only, "All checks"). Commit it before either run, don't edit between runs. `--check "python -m pytest tests/test_slack_verify.py"`. Commit run records before `prama apply`. Then the Claude Code side from the same base commit (`docs/comparison.md` step 2).
 5. Then C3, C4 …
 6. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
 7. Schedule: ladder dates slipped; Phase 1 gate Oct 21 can't hold. Vajra sets new dates (plan ends Nov 11).

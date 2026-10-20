@@ -22,6 +22,7 @@ Three build rungs, one per level of difficulty: **C2** (level 1), **C5** (level 
 
 | rung | side | wall | cost | attempts/turns | interventions | checks | blind-review defects | later defects | merged |
 |------|------|------|------|----------------|---------------|--------|----------------------|---------------|--------|
+| C2 | Pramā (personal_ca90ad61) | 0m39s | $0.2721 | 1 attempt, 15 tool calls | 0 | 3/3 pass | pending | — | pending |
 
 ## Bar and review (Nov 11, 2026)
 
