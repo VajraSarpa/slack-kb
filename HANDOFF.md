@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-20 close; C10 passed, C1 needs_human on a Pramā env defect; next: pyproject workaround + rerun C1)
+# SlackKB handoff (updated 2026-10-20 evening; C1 passed + merged `430a886`; next: worktree cleanup, Prama defect #1, then C2 paired)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -14,17 +14,18 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 - `acp.autoApprovePermissions` stays `ask`. `allowAll` bypasses the validity gate's human step — never set it.
 - `prama` is installed globally via `uv tool install ~/Projects/Prama`. If the harness source changes, reinstall.
 
-## State (2026-10-20 close)
+## State (2026-10-20 evening)
 - Repo: `VajraSarpa/slack-kb` (private), `main` tracks `origin/main`.
-- Last substantive commit: the C1-run commit made at the close of 2026-10-20 (`git log -1`; message starts "C1 run"). Before it: `8d89cae` (C1 blockers + C10), `df4272d` (C10 expected-outcome fix in prama-fieldtest), `adb50fa` (Direction + comparison plan), `cc246b0`, `5c9268e` (SLICES.md draft), `e4f3e1c` (A0 audit), `b3b21a4` (Phase 0 scaffold).
+- Last substantive commit: `430a886` (merge of C1 r2, `prama/personal_b0d5049b`). Before it: `17fb4f1` (C1 code), `11622e0` (C1 r2 records), `0085aa3` (C1 prompt: drop response_url), `548e2ff` (pytest pythonpath=src), `da79aec` (C1 run 1), `8d89cae` (C1 blockers + C10), `df4272d` (C10 expected-outcome fix in prama-fieldtest), `adb50fa` (Direction + comparison plan), `cc246b0`, `5c9268e` (SLICES.md draft), `e4f3e1c` (A0 audit), `b3b21a4` (Phase 0 scaffold).
 - Convention: handoff-only commits don't update this SHA.
-- Suite on `main`: 1 passed (`test_smoke`); ruff clean. `models.py` is NOT on main yet (lives only in the C1 worktree).
+- Suite on `main`: 5 passed (smoke + 4 in `test_models.py`); ruff clean. `models.py` on main.
+- Pushed? main was 5 ahead of origin at last check; Vajra pushes.
 - Skills: `prama-fieldtest` (operator, for every `prama` run; live `~/.claude/skills/prama-fieldtest/SKILL.md`, snapshot `skills/prama-fieldtest/`, both in sync) and `slackkb-instructor` (app side).
 
 ### Pramā setup (done 2026-10-20)
 - Installed from Prama `a9d22b6` at 12:25 (current as of close). Check again each session.
 - `~/.prama/projects/slack-kb.yaml`: trusted true; checks `python -m pytest`, `python -m ruff check src tests`; setup `uv venv … && uv sync --frozen`; lockfile `uv.lock`. Validated with Prama's `load_project`.
-- Env: `~/.prama/envs/slack-kb/82ef87d9d3b99379/` (`.ready`). Its `slackkb.pth` points at the MAIN checkout's src: see C1.
+- Env: `~/.prama/envs/slack-kb/82ef87d9d3b99379/` (`.ready`). Its `slackkb.pth` points at the MAIN checkout's src (defect #1); worked around by pytest `pythonpath = ["src"]` (`548e2ff`).
 - Profile still by path: `--profile ~/Projects/Prama/profiles/personal.yaml`.
 
 ### Runs
@@ -32,16 +33,19 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 |---|---|---|---|---|
 | A0 | personal_cf139733 | pass | TBD (OpenRouter) | `docs/audit-A0.md` |
 | C10 | personal_b0418dac | **pass** | TBD (OpenRouter, ~12:44) | found `ingestion/handler.py:30-33`; absence claims verified incl. hidden `.github`. `docs/runs/c10.md` |
-| C1 | personal_6c24565c | **needs_human** (agent blocked, 1 attempt) | $0.3084 | code correct (operator: 5 passed with src on path, diff = 2 in-scope files) but worktree checks import main via editable `.pth`. No checks/review ran. Worktree kept: `~/.prama/worktrees/personal_6c24565c`. `docs/runs/c1.md` |
+| C1 | personal_6c24565c | needs_human (agent blocked, 1 attempt) | $0.3084 | env defect #1: worktree checks import main via editable `.pth`. Superseded by r2; worktree still on disk. `docs/runs/c1.md` |
+| C1 r2 | personal_b0d5049b | **pass → merged `430a886`** | $0.2098 | 1 attempt; checks 3/3; review runs only at apply (V3 A8) → `apply_review` PASS. Vajra choices: created_at str, NoteStatus CAPTURED only, no response_url. `docs/runs/c1-r2.md` |
 
 ### Open Pramā defects (field notes; fixes go to Prama `fix/<name>` branches, test first, then reinstall)
-1. **Blocking:** prepared env's editable install points at the main checkout → worktree checks test main's code; silent false pass once main has the module. Fix first.
+1. **Blocking (worked around here, not fixed):** prepared env's editable install points at the main checkout → worktree checks test main's code; silent false pass in any repo without pytest `pythonpath`. Fix first.
 2. `search_files` silently prunes hidden dirs (no notice in output) → false "not found" risk.
 3. Obs ids = content hash only; collide across calls and sessions.
 4. `ask` keeps no answer/tokens/cost (only `tee` saves it); no absence-guard/claim events logged.
 5. `--scope` is prompt text only; no write enforcement.
 6. Checks run on a fixed PATH; `uv run …` checks (plan, AGENTS.md) can't run (inferred).
 7. profiles/ not packaged; no stale-install warning; `project init` omits `lockfile`; `prepare` T3 approval unlogged.
+8. Apply commit subjects are `prama: GOAL` (spec's first line = template header).
+9. `task` prints `→ PASS` without saying review is deferred to apply; check observations aren't logged as `observation` events.
 
 - Decided 2026-10-20 (Vajra): run C1–C6 first; settle SLICES.md open items before C11.
 
@@ -65,17 +69,14 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 
 ## Next (start here)
 
-1. Preflight per `prama-fieldtest` (install vs Prama source, profile path, API key exported in Vajra's shell).
-2. **C1 workaround (Vajra edits):** in `pyproject.toml` under `[tool.pytest.ini_options]` add `pythonpath = ["src"]`. Operator tested the effect in the C1 worktree with `-o pythonpath=src`: 5 passed, `slackkb.models` resolves to the worktree. Doesn't change `uv.lock`, so the env stays valid. Commit on main: "pytest: pythonpath=src (workaround for Pramā env defect)". Log in DECISIONS.md if Vajra wants it recorded as an app decision.
-3. **Vajra reviews `prompts/c1-models.md` operator choices:** `created_at` as str with `+00:00`; `NoteStatus` = CAPTURED only; CaptureRequest fields from `slash_bnote.json`, extras ignored.
-4. **Rerun C1 fresh** (from `~/Projects/slack-kb`, key exported):
-   `prama task "$(cat prompts/c1-models.md)" --scope "src/slackkb/models.py, tests/test_models.py" --check "python -m pytest tests/test_models.py" --profile ~/Projects/Prama/profiles/personal.yaml | tee docs/runs/c1-r2.md`
-   Expected: pass, checks + review events in the JSONL, diff = 2 files. Then Vajra reads the diff (10 min), `prama apply <session>`, `uv run pytest`.
-5. Clean up the first C1 worktree after the rerun (`prama clean`; check its help first).
-6. Prama work (in the Prama repo with prama-instructor): defect #1 above first, then #2/#3 (both affect absence claims).
-7. Then C2 (paired with plain Claude Code; commit its prompt before either run, see `docs/comparison.md`), C3, C4 …
-8. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
-9. Schedule: ladder dates slipped (C1 not passed by Oct 20); Phase 1 gate Oct 21 can't hold. Vajra sets new dates (plan ends Nov 11).
+1. Preflight per `prama-fieldtest`. `git status`: main may still be ahead of origin; Vajra pushes.
+2. Worktree cleanup: `prama clean` (dry run, no `--yes`) and read the list before removing anything; 17 worktrees under `~/.prama/worktrees/`, including C1 run 1 (`personal_6c24565c`, needs_human, so flagged; remove with `--session` if wanted).
+3. Prama work (Prama repo, prama-instructor): defect #1 first, then #2/#3 (absence claims), then #8 (commit subject, small).
+4. C2 (`slack_verify.py`), paired with plain Claude Code: write and commit `prompts/c2-*.md` before either run (`docs/comparison.md`). Use `--check "python -m pytest tests/test_slack_verify.py"`. Commit run records before `prama apply`.
+5. Then C3, C4 …
+6. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
+7. Schedule: ladder dates slipped; Phase 1 gate Oct 21 can't hold. Vajra sets new dates (plan ends Nov 11).
+8. Optional, from C1 diff read: `Note.created_at` accepts any string when passed explicitly; consider a validator when C3 reads notes back.
 
 Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`, `store`, `config`, `capture`).
 
@@ -84,6 +85,8 @@ Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`,
 - Every `prama` run: `OPENROUTER_API_KEY` exported, `--profile ~/Projects/Prama/profiles/personal.yaml`, `| tee docs/runs/<rung>.md`.
 - `--check` commands use `python -m …`, not `uv run …` (sandbox PATH has no `uv`). Applies to every plan p.17–18 command.
 - Pass `--scope` explicitly; check scope yourself in the diff (not enforced).
+- Blind review runs at `prama apply`, not during `task` (unless `--review`). Expect `apply_review` in the JSONL after apply.
+- `prama apply` refuses on a dirty main: commit the run's tee output + logs first.
 - Costs to fill from the OpenRouter dashboard: A0 (~04:54, ~04:57 on 10-15), C10 (~12:44 on 10-20).
 - Before C5: save `prompts/01-slice-capture.md` from the first-prompt file with three edits (plan p.19): drop `tests/conftest.py` and `tests/fixtures/slash_bnote.json` from SCOPE; requirement 2 → D-006 wording; add "handler returns the ack response; it never calls Slack's response_url".
 - Before C9: poisoned README branch is throwaway; afterwards `git branch -D calib/poison && chmod -R a-w reference/tutorial`.
@@ -94,7 +97,7 @@ Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`,
 
 | # | Level | Task | Expected | When |
 |---|-------|------|----------|------|
-| C1 | 1 | models.py: Note, Severity, CaptureRequest | pass (run 1: needs_human, env defect) | Oct 15 → slipped |
+| C1 | 1 | models.py: Note, Severity, CaptureRequest | pass — **passed r2 10-20, merged `430a886`** (run 1: needs_human, env defect) | Oct 15 → slipped |
 | C2 | 1 | slack_verify.py: HMAC + 300s window + lowercase headers | pass | Oct 15 |
 | C3 | 2 | store.py: put_if_absent + moto | pass | Oct 16 |
 | C4 | 2 | config.py: pydantic-settings | pass | Oct 16 |
