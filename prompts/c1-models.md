@@ -20,7 +20,8 @@ REQUIREMENTS
    - created_at is a str: UTC ISO-8601 with a +00:00 offset, defaulting to now.
    - An unknown severity (e.g. "URGENT") raises pydantic.ValidationError.
 4. CaptureRequest: the slash-command fields capture needs: team_id, channel_id,
-   user_id, command, text, trigger_id, response_url. Extra form fields are ignored.
+   user_id, command, text, trigger_id. Extra form fields (including response_url)
+   are ignored.
 5. note_id is a plain str here. Do not derive it; that is rung C6 (D-006).
 
 TESTS (write first; they must fail before implementation)

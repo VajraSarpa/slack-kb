@@ -58,3 +58,6 @@ Logged after the fact; times approximate (local).
 ## 2026-10-20 (later) — C1 rerun prep
 - preflight: git = handoff (`da79aec`, clean, tracks origin); install 12:25 vs Prama `a9d22b6` 12:20 → current; profile and `~/.prama/projects/slack-kb.yaml` present; API key: Vajra to confirm in his shell. [manual verification]
 - `~/.prama/worktrees/` holds 17 worktrees, not only `personal_6c24565c`. Cleanup (Next 5) needs `prama clean --help` read first. [observed; field note candidate: worktrees accumulate]
+- Vajra reviewed C1 choice 1: `created_at` stays str (+00:00). [deferred to Vajra → decided]
+- Vajra reviewed C1 choice 2: `NoteStatus` = CAPTURED only; ROUTED/FAILED wait for D-009. [deferred to Vajra → decided]
+- Vajra reviewed C1 choice 3: drop `response_url` from CaptureRequest (handler never calls it, C5 carry-over); edited prompt req 4. All three C1 choices settled. [deferred to Vajra → decided]
