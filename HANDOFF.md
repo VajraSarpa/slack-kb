@@ -37,7 +37,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 | C1 r2 | personal_b0d5049b | **pass → merged `430a886`** | $0.2098 | 1 attempt; checks 3/3; review runs only at apply (V3 A8) → `apply_review` PASS. Vajra choices: created_at str, NoteStatus CAPTURED only, no response_url. `docs/runs/c1-r2.md` |
 
 ### Open Pramā defects (field notes; fixes go to Prama `fix/<name>` branches, test first, then reinstall)
-1. **Blocking (worked around here, not fixed):** prepared env's editable install points at the main checkout → worktree checks test main's code; silent false pass in any repo without pytest `pythonpath`. Fix first.
+1. **Fixed on Prama `fix/editable-worktree` (300 passed; merge + reinstall pending):** the env's editable `.pth` names the main checkout's src, which the sandbox hides → every check/agent shell in a src-layout repo can't import the package (loud, not a silent false pass; corrected 17:30 by probe). Worked around here by pytest `pythonpath`.
 2. `search_files` silently prunes hidden dirs (no notice in output) → false "not found" risk.
 3. Obs ids = content hash only; collide across calls and sessions.
 4. `ask` keeps no answer/tokens/cost (only `tee` saves it); no absence-guard/claim events logged.
@@ -72,7 +72,7 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 
 1. Preflight per `prama-fieldtest`. `git status`: main may still be ahead of origin; Vajra pushes.
 2. Worktree cleanup: dry run read 17:00 (operator-log). Only 2 of 18 worktrees are slack-kb's; `clean` is global (defect #10). Remove slack-kb's two by `--session` only (`personal_b0d5049b` merged; `personal_6c24565c` superseded). Never `--older-than 0 --yes` from here; it hits rupa/Mula/v3-lab.
-3. Prama work (Prama repo, prama-instructor): defect #1 first, then #2/#3 (absence claims), then #8 (commit subject, small).
+3. Prama work (Prama repo, prama-instructor): #1 done on `fix/editable-worktree`; after Vajra merges, `uv tool install --reinstall ~/Projects/Prama`. Keep pytest `pythonpath` (harmless). Then #2/#3 (absence claims), then #8 (commit subject). Optional app-side: a `.gitignore` (field note).
 4. C2 (`slack_verify.py`), paired with plain Claude Code: write and commit `prompts/c2-*.md` before either run (`docs/comparison.md`). Use `--check "python -m pytest tests/test_slack_verify.py"`. Commit run records before `prama apply`.
 5. Then C3, C4 …
 6. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.

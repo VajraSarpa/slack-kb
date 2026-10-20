@@ -73,3 +73,7 @@ Logged after the fact; times approximate (local).
 - `prama clean` (default 7 days): nothing listed. `--older-than 0`: 12 listed. 18 dirs on disk. [observed]
 - mapped each worktree to its repo via `git rev-parse --git-common-dir`: 2 slack-kb, the rest rupa/Mula/v3-lab/prama-scratch. The 6 unlisted are flagged (`needs_human` / `hard_flagged` in the JSONL). [manual verification; field note]
 - slack-kb's two: `b0d5049b` merged (`main..branch` empty); `6c24565c` has no commits past main, only the uncommitted run-1 models.py/test_models.py, superseded by r2 and recorded in `docs/runs/c1.md`. Recommended `--session` per id, not `--older-than 0 --yes`, so other projects' worktrees are left alone. [judgment; deferred to Vajra]
+- 17:26 Vajra removed both slack-kb worktrees (`--session`). [observed: gone from ~/.prama/worktrees]
+- 17:30 probed defect #1 before fixing: temp detached worktree in scratchpad, `prama.sandbox.run_sandboxed` with the slack-kb env; main's src not visible in the sandbox, import fails loudly. Corrected the field note; removed the temp worktree. [manual verification]
+- 18:05 live check of the fix (temp detached worktree, removed after): binds `wt/src → slack-kb/src`; import from `/` works; `pytest -o pythonpath=` 5 passed; `git status` works. [manual verification]
+- my step-1 script used a relative path; Vajra ran it from slack-kb, so the fix branch was created here. He deleted it; nothing else changed. [operator error]
