@@ -19,7 +19,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 - Last substantive commit: `430a886` (merge of C1 r2, `prama/personal_b0d5049b`). Before it: `17fb4f1` (C1 code), `11622e0` (C1 r2 records), `0085aa3` (C1 prompt: drop response_url), `548e2ff` (pytest pythonpath=src), `da79aec` (C1 run 1), `8d89cae` (C1 blockers + C10), `df4272d` (C10 expected-outcome fix in prama-fieldtest), `adb50fa` (Direction + comparison plan), `cc246b0`, `5c9268e` (SLICES.md draft), `e4f3e1c` (A0 audit), `b3b21a4` (Phase 0 scaffold).
 - Convention: handoff-only commits don't update this SHA.
 - Suite on `main`: 5 passed (smoke + 4 in `test_models.py`); ruff clean. `models.py` on main.
-- Pushed? main was 5 ahead of origin at last check; Vajra pushes.
+- Pushed: main in sync with origin as of `48f609e` (checked 17:00).
 - Skills: `prama-fieldtest` (operator, for every `prama` run; live `~/.claude/skills/prama-fieldtest/SKILL.md`, snapshot `skills/prama-fieldtest/`, both in sync) and `slackkb-instructor` (app side).
 
 ### Pramā setup (done 2026-10-20)
@@ -46,6 +46,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 7. profiles/ not packaged; no stale-install warning; `project init` omits `lockfile`; `prepare` T3 approval unlogged.
 8. Apply commit subjects are `prama: GOAL` (spec's first line = template header).
 9. `task` prints `→ PASS` without saying review is deferred to apply; check observations aren't logged as `observation` events.
+10. `prama clean` is global across repos (no `--repo` filter, no repo column); dry run hides flagged sessions entirely.
 
 - Decided 2026-10-20 (Vajra): run C1–C6 first; settle SLICES.md open items before C11.
 
@@ -70,7 +71,7 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 ## Next (start here)
 
 1. Preflight per `prama-fieldtest`. `git status`: main may still be ahead of origin; Vajra pushes.
-2. Worktree cleanup: `prama clean` (dry run, no `--yes`) and read the list before removing anything; 17 worktrees under `~/.prama/worktrees/`, including C1 run 1 (`personal_6c24565c`, needs_human, so flagged; remove with `--session` if wanted).
+2. Worktree cleanup: dry run read 17:00 (operator-log). Only 2 of 18 worktrees are slack-kb's; `clean` is global (defect #10). Remove slack-kb's two by `--session` only (`personal_b0d5049b` merged; `personal_6c24565c` superseded). Never `--older-than 0 --yes` from here; it hits rupa/Mula/v3-lab.
 3. Prama work (Prama repo, prama-instructor): defect #1 first, then #2/#3 (absence claims), then #8 (commit subject, small).
 4. C2 (`slack_verify.py`), paired with plain Claude Code: write and commit `prompts/c2-*.md` before either run (`docs/comparison.md`). Use `--check "python -m pytest tests/test_slack_verify.py"`. Commit run records before `prama apply`.
 5. Then C3, C4 …

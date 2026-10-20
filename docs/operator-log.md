@@ -67,3 +67,9 @@ Logged after the fact; times approximate (local).
 - `prama apply` refused: main had uncommitted run records (ledger, field notes, operator log, `docs/runs/c1-r2.md` from tee). Committing them first. Clean-tree guard is reasonable; it means the tee output for each run has to be committed before apply. [workaround]
 - 20:55Z Vajra committed records (`11622e0`), ran `prama apply personal_b0d5049b`; read `apply_review` (PASS) from the JSONL and recommended merge. Vajra merged (`430a886`), ran `uv run pytest` on main: 5 passed. [observed]
 - read `prama clean --help`: dry-run by default (lists without `--yes`), `--older-than` days (default 7), never touches flagged sessions unless `--session`. Cleanup deferred to next session, dry run first. [judgment]
+
+## 2026-10-20 (late) — worktree cleanup (Next 2)
+- preflight: git = handoff (`48f609e`, clean, now in sync with origin, so the push is done); install 12:25 vs Prama `a9d22b6` 12:20 → current; profile path and project yaml present. [manual verification]
+- `prama clean` (default 7 days): nothing listed. `--older-than 0`: 12 listed. 18 dirs on disk. [observed]
+- mapped each worktree to its repo via `git rev-parse --git-common-dir`: 2 slack-kb, the rest rupa/Mula/v3-lab/prama-scratch. The 6 unlisted are flagged (`needs_human` / `hard_flagged` in the JSONL). [manual verification; field note]
+- slack-kb's two: `b0d5049b` merged (`main..branch` empty); `6c24565c` has no commits past main, only the uncommitted run-1 models.py/test_models.py, superseded by r2 and recorded in `docs/runs/c1.md`. Recommended `--session` per id, not `--older-than 0 --yes`, so other projects' worktrees are left alone. [judgment; deferred to Vajra]
