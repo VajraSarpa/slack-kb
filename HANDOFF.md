@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-17; preflight for C1 done, 3 blockers on Vajra; SLICES open items still open)
+# SlackKB handoff (updated 2026-10-20; SlackKB is now Pramā's project, comparison plan added; C1 blockers still on Vajra)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -31,6 +31,12 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
   - **`~/.prama/projects/slack-kb.yaml` missing.** Needed for `task --check`. Flow: `prama project init` → hand edit → `prama prepare`. Draft contents under Next.
   - Profile path exists. API key not checkable from the operator shell.
   - Open question to Vajra (unanswered): settle SLICES.md open items now, or run C1–C6 first and settle them before C11? Operator recommends C1–C6 first (items gate Slices 2/7, not C1).
+
+## Direction (Vajra, 2026-10-20)
+- **Pramā is the main project** (Vajra's coding agent harness). SlackKB is the app built with Pramā as the harness; its runs drive Pramā's next work (Rupa is now separate). Pramā changes come from what runs here show: one line in `docs/prama-field-notes.md` first, then the fix in the Prama repo, then reinstall.
+- Paired rungs **C2, C5, C11** also run in plain Claude Code. Protocol, results table and the Nov 11 review (shortfalls become Pramā work items, not a stop): `docs/comparison.md`. Write and commit each paired rung's prompt before either run.
+- ACP (Prama V3 B1) can be tried on a rung here if it helps; it's not a separate item.
+- **Schedule slipped:** the ladder dates below run Oct 15–21 and C1 hasn't run. The Phase 1 gate (Oct 21) can't hold. Vajra to set new dates (the plan ends Nov 11).
 
 ## Locked decisions (D-001..D-008)
 - D-001 Fresh repo; `reference/tutorial/` is read-only reference, never a source of truth.
