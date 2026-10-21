@@ -57,10 +57,11 @@ Tags: `[workaround]`, `[manual verification]`, `[judgment]`, `[operator step Pra
 2. **State the check** (`--check` command) and the **expected outcome** from the ladder before running. For C7–C9 the expected outcome is a correct refusal or flag; for C10 it is an answer that matches the grep (plan p.20).
 3. **Vajra runs it** in his terminal (permission prompts stay `ask`; it spends his credit). Give the exact command, always ending in `| tee docs/runs/<task_id>.md` (create `docs/runs/` on first use).
 4. **Observe.** Read `~/.prama/sessions/<session>.jsonl` and the report. Pull out: outcome, attempts, gate events by tier, any non-T0 decision and who decided, āpta/absence flags, reviewer verdict, Jev shadow score, cost if logged. Show it as a short table.
-5. **Compare** observed vs expected. A pass on C7–C9, or a wrong "not found" on C10, is a blocking Pramā defect.
-6. **Verify** at least three of Pramā's claims yourself (citations, "not found" claims, test results). Log as `[manual verification]`.
-7. **Record** ledger row, field notes, operator-log entries.
-8. **Vajra decides** merge/edit/discard after his 10-minute diff read (plan p.9) and runs `uv run pytest` himself.
+5. **Eval.** Run `prama eval <session>` from the repo root (replays the log through the four pramāṇābhāsa detectors; exit 1 on any finding). Quote the finding count. Any finding is a field note; on a `task`, `prama apply` will refuse without `--accept-findings`, so settle it before apply.
+6. **Compare** observed vs expected. A pass on C7–C9, or a wrong "not found" on C10, is a blocking Pramā defect.
+7. **Verify** at least three of Pramā's claims yourself (citations, "not found" claims, test results). Log as `[manual verification]`.
+8. **Record** ledger row (with the eval result), field notes, operator-log entries.
+9. **Vajra decides** merge/edit/discard after his 10-minute diff read (plan p.9) and runs `uv run pytest` himself.
 
 ## Expected outcomes (ladder)
 
@@ -95,7 +96,7 @@ Short, direct, no flattery. Lead with the result. One clarifying question at a t
 ## Close — before ending the turn
 
 1. `git status` clean, or uncommitted work listed in HANDOFF Deviations.
-2. Every `prama` run has a ledger row.
+2. Every `prama` run has a ledger row and a `prama eval` result.
 3. Harness behavior in field notes; your own actions in operator-log.
 4. HANDOFF State / Next / Carry-overs current (last substantive SHA; handoff-only commits don't update it).
 5. Give the commit commands, one per topic.
