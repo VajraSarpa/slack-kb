@@ -74,7 +74,7 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 1. Preflight per `prama-fieldtest`. `git status`: main may still be ahead of origin; Vajra pushes.
 2. Done 10-20: slack-kb worktrees removed 17:26 (`--session`). Remaining 16 belong to other repos; never `--older-than 0 --yes` from here.
 3. Done 10-20: defect #1 fix merged to Prama main `277b80a` (18:13), reinstalled 18:13:51. Keep pytest `pythonpath` (harmless). Still queued in Prama: #2/#3 (absence claims), then #8 (commit subject). Optional app-side: a `.gitignore`.
-4. **C2 (`slack_verify.py`), paired. Pramā side done (`personal_ca90ad61`, pass, not applied); next the Claude Code side from `f37d7ce`, then blind A/B review, then apply/merge one.** Prompt `prompts/c2-slack-verify.md` = plan p.17 verbatim + C1 conventions (uv-not-on-PATH line, fixtures read-only, "All checks"). Commit it before either run, don't edit between runs. `--check "python -m pytest tests/test_slack_verify.py"`. Commit run records before `prama apply`. Then the Claude Code side from the same base commit (`docs/comparison.md` step 2).
+4. **C2 (`slack_verify.py`), paired. Pramā side done (`personal_ca90ad61`, pass, not applied); next the Claude Code side from `f37d7ce` in the fixed worktree `../slack-kb-cc` (branch `cmp/c2-claudecode`; launch line in `docs/comparison.md` step 2), then blind A/B review, then apply/merge one.** Prompt `prompts/c2-slack-verify.md` = plan p.17 verbatim + C1 conventions (uv-not-on-PATH line, fixtures read-only, "All checks"). Commit it before either run, don't edit between runs. `--check "python -m pytest tests/test_slack_verify.py"`. Commit run records before `prama apply`. Then the Claude Code side from the same base commit (`docs/comparison.md` step 2).
 5. Then C3, C4 …
 6. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
 7. Schedule: ladder dates slipped; Phase 1 gate Oct 21 can't hold. Vajra sets new dates (plan ends Nov 11).
@@ -83,6 +83,8 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`, `store`, `config`, `capture`).
 
 ## Carry-overs for Phase 1
+- Bar revised 2026-10-21 (`docs/comparison.md`): accurate / reliable / memory; speed not in the bar. Every `prama apply`: note any memory proposals and Vajra's yes/no in the Lessons table. From C3: drop a prompt CONTEXT line once its lesson is stored, then score recalled / repeated.
+- Every `prama` run: `prama eval <session>` (prama-fieldtest step 5).
 - Every session: reinstall if Prama source is newer than `~/.local/share/uv/tools/prama/uv-receipt.toml`.
 - Every `prama` run: `OPENROUTER_API_KEY` exported, `--profile ~/Projects/Prama/profiles/personal.yaml`, `| tee docs/runs/<rung>.md`.
 - `--check` commands use `python -m …`, not `uv run …` (sandbox PATH has no `uv`). Applies to every plan p.17–18 command.
