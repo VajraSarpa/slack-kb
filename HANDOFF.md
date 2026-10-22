@@ -1,9 +1,9 @@
-# SlackKB handoff (updated 2026-10-20 night; C1 merged `430a886`; defect #1 fixed + reinstalled; next: C2 paired)
+# SlackKB handoff (updated 2026-10-22; C2 Pramā side passed, not applied; next: C2 Claude Code side, then blind A/B review)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
 ## Who
-Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One clarifying question at a time. Beginner-level terminal: one command per step, say which folder (`~/Projects/slack-kb`, repo root). Pastes VS Code screenshots; check tabs/explorer before predicting failure. He runs git himself; you read `git status` first.
+Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One clarifying question at a time. Beginner-level terminal: **one command per message, each starting with `cd <absolute folder> &&`; wait for "done" before the next.** Never a list that spans two folders (main repo vs a worktree), never "steps 2–7 are the same". He said on 10-22 this has confused him many times (pushed from the wrong folder). Pastes VS Code screenshots; check tabs/explorer before predicting failure. He runs git himself; you read `git status` first.
 
 ## How this project runs
 - Plan doc: `~/Projects/PramaSlackKB/SlackKB × Pramā Plan, Guide, and Tutorial.pdf` (26 pages). Supersedes the earlier plan draft and anything inside `reference/tutorial/`.
@@ -14,12 +14,12 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 - `acp.autoApprovePermissions` stays `ask`. `allowAll` bypasses the validity gate's human step — never set it.
 - `prama` is installed globally via `uv tool install ~/Projects/Prama`. If the harness source changes, reinstall.
 
-## State (2026-10-20 evening)
+## State (2026-10-22)
 - Repo: `VajraSarpa/slack-kb` (private), `main` tracks `origin/main`.
 - Last substantive commit: `430a886` (merge of C1 r2, `prama/personal_b0d5049b`). Before it: `17fb4f1` (C1 code), `11622e0` (C1 r2 records), `0085aa3` (C1 prompt: drop response_url), `548e2ff` (pytest pythonpath=src), `da79aec` (C1 run 1), `8d89cae` (C1 blockers + C10), `df4272d` (C10 expected-outcome fix in prama-fieldtest), `adb50fa` (Direction + comparison plan), `cc246b0`, `5c9268e` (SLICES.md draft), `e4f3e1c` (A0 audit), `b3b21a4` (Phase 0 scaffold).
 - Convention: handoff-only commits don't update this SHA.
 - Suite on `main`: 5 passed (smoke + 4 in `test_models.py`); ruff clean. `models.py` on main.
-- Pushed: main in sync with origin as of `48f609e` (checked 17:00).
+- Pushed: main in sync with origin at `dd1b289` (10-22). Last substantive commit for the record: `4ac2ede` (C2 Pramā run records).
 - Skills: `prama-fieldtest` (operator, for every `prama` run; live `~/.claude/skills/prama-fieldtest/SKILL.md`, snapshot `skills/prama-fieldtest/`, both in sync) and `slackkb-instructor` (app side).
 
 ### Pramā setup (done 2026-10-20)
@@ -71,13 +71,17 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 
 ## Next (start here)
 
-1. Preflight per `prama-fieldtest`. `git status`: main may still be ahead of origin; Vajra pushes.
-2. Done 10-20: slack-kb worktrees removed 17:26 (`--session`). Remaining 16 belong to other repos; never `--older-than 0 --yes` from here.
-3. Done 10-20: defect #1 fix merged to Prama main `277b80a` (18:13), reinstalled 18:13:51. Keep pytest `pythonpath` (harmless). Still queued in Prama: #2/#3 (absence claims), then #8 (commit subject). Optional app-side: a `.gitignore`.
-4. **C2 (`slack_verify.py`), paired. Pramā side done (`personal_ca90ad61`, pass, not applied); next the Claude Code side from `f37d7ce` in the fixed worktree `../slack-kb-cc` (branch `cmp/c2-claudecode`; launch line in `docs/comparison.md` step 2), then blind A/B review, then apply/merge one.** Prompt `prompts/c2-slack-verify.md` = plan p.17 verbatim + C1 conventions (uv-not-on-PATH line, fixtures read-only, "All checks"). Commit it before either run, don't edit between runs. `--check "python -m pytest tests/test_slack_verify.py"`. Commit run records before `prama apply`. Then the Claude Code side from the same base commit (`docs/comparison.md` step 2).
+1. Preflight per `prama-fieldtest` (install current as of 10-22: Prama `277b80a`, receipt 18:13:51 10-20).
+2. **C2 Claude Code side: set up, not launched.** Worktree `~/Projects/slack-kb-cc` on branch `cmp/c2-claudecode` at `f37d7ce`, clean; `uv sync` done there (its `.venv` imports the worktree's src, checked). The old `slack-kb-cc-c2` worktree is removed. Give Vajra these one at a time:
+   - `cd ~/Projects/slack-kb-cc && source .venv/bin/activate && which python` → must print `…/slack-kb-cc/.venv/bin/python` (the `(slack-kb)` prompt label looks the same for both venvs, so it proves nothing).
+   - `cd ~/Projects/slack-kb-cc && date` (start time; the 18:56 time from 10-22 is void, the run never started).
+   - `cd ~/Projects/slack-kb-cc && claude --permission-mode acceptEdits --disable-slash-commands "$(cat prompts/c2-slack-verify.md)"`. Tally each approval ("Yes" once, never "don't ask again") and each answer; no help. At done: `/cost`, `/exit`, `date`.
+   - Don't push `cmp/c2-claudecode` (it stays local).
+3. Score C2: diff `f37d7ce..` in `slack-kb-cc`, run checks with its venv, add the Claude Code row to `docs/comparison.md` (split agent time vs harness overhead for both sides; Pramā: ~31 s agent, ~8 s overhead). Then a fresh session for the blind A/B review (diffs labeled A/B + prompt). Vajra merges the better side (Pramā: commit records, `prama eval`, then `prama apply personal_ca90ad61`; note any memory proposals in the Lessons table).
+4. Prama queue (Prama repo, prama-instructor): #2/#3 (absence claims), #8 (commit subject). Optional app-side: a `.gitignore` (cost C2's agent 3 of 15 tool calls).
 5. Then C3, C4 …
 6. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
-7. Schedule: ladder dates slipped; Phase 1 gate Oct 21 can't hold. Vajra sets new dates (plan ends Nov 11).
+7. Schedule: ladder dates slipped; Phase 1 gate Oct 21 can't hold. Vajra sets new dates (plan ends Nov 11). Estimate given 10-21: ~40–55 h hands-on to the Nov 11 exit review (52–75 h with seeded eval suites); finish the ladder by ~Oct 28. Recommended (not yet decided): `prama eval` every run (in skill now), seeded recall suites for testimony (C9) + absence (C10) before Nov 11 (~6 h), the other two suites and any public benchmark after.
 8. Optional, from C1 diff read: `Note.created_at` accepts any string when passed explicitly; consider a validator when C3 reads notes back.
 
 Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`, `store`, `config`, `capture`).
