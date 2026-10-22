@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-22 evening; C2 merged (Claude Code side); next: C3)
+# SlackKB handoff (updated 2026-10-22 night; solo session: C10-CC scored, C3 + C4 passed and staged; next: Vajra reads C3/C4 diffs)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -16,10 +16,9 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 
 ## State (2026-10-22)
 - Repo: `VajraSarpa/slack-kb` (private), `main` tracks `origin/main`.
-- Last substantive commit: `430a886` (merge of C1 r2, `prama/personal_b0d5049b`). Before it: `17fb4f1` (C1 code), `11622e0` (C1 r2 records), `0085aa3` (C1 prompt: drop response_url), `548e2ff` (pytest pythonpath=src), `da79aec` (C1 run 1), `8d89cae` (C1 blockers + C10), `df4272d` (C10 expected-outcome fix in prama-fieldtest), `adb50fa` (Direction + comparison plan), `cc246b0`, `5c9268e` (SLICES.md draft), `e4f3e1c` (A0 audit), `b3b21a4` (Phase 0 scaffold).
+- Last substantive commit: `1bd002d` (C4 run records). Before it: `ca09376` (C3 run records), `77ba69f` (C3/C4 prompts), `492fe1a` (C10 Claude Code side), `6db642c` (merge of C2, Claude Code side `6a21c7c`), `430a886` (merge of C1 r2), `548e2ff` (pytest pythonpath=src), `b3b21a4` (Phase 0 scaffold).
 - Convention: handoff-only commits don't update this SHA.
-- Suite on `main`: 5 passed (smoke + 4 in `test_models.py`); ruff clean. `models.py` on main.
-- Last substantive commit: `6db642c` (merge of C2, Claude Code side `6a21c7c`). Suite on main: 17 passed, ruff clean. Pushed 10-22 (main in sync at `ec77070`).
+- Suite on `main`: 17 passed, ruff clean (`models.py`, `slack_verify.py`). C3/C4 not applied yet. Local main is 4 commits + this handoff ahead of origin (`521f043`); **not pushed** (Vajra pushes).
 - Skills: `prama-fieldtest` (operator, for every `prama` run; live `~/.claude/skills/prama-fieldtest/SKILL.md`, snapshot `skills/prama-fieldtest/`, both in sync) and `slackkb-instructor` (app side).
 
 ### Pramā setup (done 2026-10-20)
@@ -35,7 +34,10 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 | C10 | personal_b0418dac | **pass** | TBD (OpenRouter, ~12:44) | found `ingestion/handler.py:30-33`; absence claims verified incl. hidden `.github`. `docs/runs/c10.md` |
 | C1 | personal_6c24565c | needs_human (agent blocked, 1 attempt) | $0.3084 | env defect #1: worktree checks import main via editable `.pth`. Superseded by r2; worktree still on disk. `docs/runs/c1.md` |
 | C1 r2 | personal_b0d5049b | **pass → merged `430a886`** | $0.2098 | 1 attempt; checks 3/3; review runs only at apply (V3 A8) → `apply_review` PASS. Vajra choices: created_at str, NoteStatus CAPTURED only, no response_url. `docs/runs/c1-r2.md` |
-| C2 (Pramā side) | personal_ca90ad61 | **pass**, ready_for_human; not applied | $0.2721 | 1 attempt, 0m39s, 0 interventions; 17 passed in worktree. Waiting on the Claude Code side + blind A/B review. `docs/runs/c2.md` |
+| C2 (Pramā side) | personal_ca90ad61 | **pass**, ready_for_human; not applied | $0.2721 | 1 attempt, 0m39s, 0 interventions; lost blind A/B 4m vs 1m; kept on `cmp/c2-prama`. `docs/runs/c2.md` |
+| C10 (Claude Code side) | CC 97e5a177 | **accurate** (= grep, 12 cites hold, absence true) | $0.389 API-equiv | `claude -p --permission-mode plan`, 7 turns, 32 s. Tie with Pramā on accuracy. `docs/runs/c10-claudecode.md` |
+| C3 | personal_509380bc | **pass**, ready_for_human; staged | $0.1563 | 1 attempt, ~49 s, 12 tool calls; 20 passed in worktree; **eval 2 findings** (inference claims, empty evidence; claims true) → apply needs `--accept-findings`. `docs/runs/c3.md` |
+| C4 | personal_6845bfac | **pass**, ready_for_human; staged | $0.1624 | 1 attempt, ~32 s, 10 tool calls; 20 passed in worktree; eval 0. `docs/runs/c4.md` |
 
 ### Open Pramā defects (field notes; fixes go to Prama `fix/<name>` branches, test first, then reinstall)
 1. **Fixed on Prama `fix/editable-worktree` (300 passed; merge + reinstall pending):** the env's editable `.pth` names the main checkout's src, which the sandbox hides → every check/agent shell in a src-layout repo can't import the package (loud, not a silent false pass; corrected 17:30 by probe). Worked around here by pytest `pythonpath`.
@@ -48,6 +50,8 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 8. Apply commit subjects are `prama: GOAL` (spec's first line = template header).
 9. `task` prints `→ PASS` without saying review is deferred to apply; check observations aren't logged as `observation` events.
 10. `prama clean` is global across repos (no `--repo` filter, no repo column); dry run hides flagged sessions entirely.
+11. (C3) Verify's claim check passes inference claims with `evidence: []`; `prama eval` flags the same claims (anumanabhasa). `task` says PASS, then `apply` refuses. Same model passed eval on C4 only because it filled the field. Verify should apply the eval rule (or `task` should run eval).
+12. (C3) pydantic-ai 2.54 banner prints into every `task` tee; Pramā should set `PYDANTIC_AI_NO_BANNER=1`.
 
 - Decided 2026-10-20 (Vajra): run C1–C6 first; settle SLICES.md open items before C11.
 
@@ -71,22 +75,17 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 
 ## Next (start here)
 
-**Next session: operator runs it solo (Vajra, 10-22: "complete on your own; if you need me to approve something, let me know. I want to see what you can do").** For that session only:
-- The operator runs commands itself, including `prama task/ask/eval/apply`, git commits and `claude -p`. The one-command-per-message rule is for when Vajra types commands; it doesn't apply here.
-- Still Vajra's: approving permission prompts; `git push` (ask once at the end); anything in `infra/`, `docs/SLICES.md`, `docs/DECISIONS.md`, `tests/conftest.py`, `tests/fixtures/*`; model-shape or app choices a prompt needs (ask one question at a time, batch them up front so the runs aren't blocked); merge/discard after his diff read (stage it, don't apply, unless he says so).
-- `OPENROUTER_API_KEY`: Claude Code's Bash doesn't source `~/.bashrc` (line 35 exports it from `~/.config/openrouter.key`, mode 600). Prefix each `prama` call with `OPENROUTER_API_KEY=$(cat ~/.config/openrouter.key)`; never print or echo it. Tested 10-22: reaches the child process.
-- Show-your-work rule stands: every step logged in `docs/operator-log.md` with tags; end with one summary for Vajra.
-- Planned scope, in order: (1) preflight; (2) C10 Claude Code side: `claude -p --permission-mode plan "$(cat prompts/c10-absence.md)"` from `../slack-kb-cc`, tee to `docs/runs/c10-claudecode.md`, score per comparison.md knowledge rules (note: `-p` non-interactive differs from the build-pair protocol; record it); (3) C3 `store.py` put_if_absent + moto: write `prompts/c3-store.md`, commit, run, eval, verify, record, stage for Vajra; (4) C4 `config.py` the same way if C3 went cleanly. Stop and report if a run fails in a way that needs a Pramā fix.
+Solo session 10-22 night done (operator ran commands itself; scope: preflight, C10-CC, C3, C4, all completed). Back to the normal rule: Vajra types commands, one per message. If he asks for another solo session, the key goes in as `OPENROUTER_API_KEY=$(cat ~/.config/openrouter.key)` before `prama` (Bash doesn't source `~/.bashrc`; never echo it), plus `PYDANTIC_AI_NO_BANNER=1`.
 
-
-1. Preflight per `prama-fieldtest` (install current as of 10-22: Prama `277b80a`, receipt 18:13:51 10-20).
-2. **C2 Claude Code side: done 10-22** (session `9bf6cdd6`, 18:59:42–19:07:51). Stopped after writing tests ("No response requested."); one `continue` finished it. 17 passed, ruff clean with its venv. Committed `6a21c7c` on local branch `cmp/c2-claudecode` in `~/Projects/slack-kb-cc`; leave it unpushed. Row in `docs/comparison.md`; $ TBD from tokens.
-3. **C2 done 10-22:** blind review Pramā 4 minor vs Claude Code 1; Vajra merged the Claude Code side (`6db642c`); main 17 passed, ruff clean. Pramā's C2 kept on branch `cmp/c2-prama` (`7a31726`, renamed from `prama/personal_ca90ad61`; worktree `~/.prama/worktrees/personal_ca90ad61` still on disk). Don't `prama apply` it; removing the worktree later leaves the branch. Remove the `../slack-kb-cc` worktree? No: it's the fixed Claude Code folder for C5/C11 (`git -C ../slack-kb-cc switch -c cmp/c5-claudecode <base>`).
-4. Prama queue (Prama repo, prama-instructor): #2/#3 (absence claims), #8 (commit subject). Optional app-side: a `.gitignore` (cost C2's agent 3 of 15 tool calls).
-5. Then C3, C4 … Any time before C11: run C10's Claude Code side (same `prompts/c10-absence.md`, in `../slack-kb-cc`, read-only; score per `docs/comparison.md` knowledge-pair rules). C9: write its prompt + both sides' scoring criteria and commit before either run; Claude Code runs first.
-6. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
-7. Schedule: ladder dates slipped; Phase 1 gate Oct 21 can't hold. Vajra sets new dates (plan ends Nov 11). Estimate given 10-21: ~40–55 h hands-on to the Nov 11 exit review (52–75 h with seeded eval suites); finish the ladder by ~Oct 28. Recommended (not yet decided): `prama eval` every run (in skill now), seeded recall suites for testimony (C9) + absence (C10) before Nov 11 (~6 h), the other two suites and any public benchmark after.
-8. Optional, from C1 diff read: `Note.created_at` accepts any string when passed explicitly; consider a validator when C3 reads notes back.
+1. Preflight per `prama-fieldtest` (install current as of 10-22 night: Prama `277b80a`, receipt 18:13:51 10-20).
+2. **Vajra: `git push`** (main is ahead of origin with the solo-session commits).
+3. **Vajra: 10-minute diff read of C3 and C4**, then decide. Both are staged as uncommitted `A` files in their worktrees: C3 `~/.prama/worktrees/personal_509380bc` (store.py, test_store.py), C4 `~/.prama/worktrees/personal_6845bfac` (config.py, test_config.py). Disjoint files, so applying both should be conflict-free (inferred). Operator notes are in `docs/operator-log.md`. C3: no test for "other errors propagate" (checked by hand: it raises). C4: no test for a missing notes_table (checked by hand: it raises); `extra="ignore"` was added unasked. To merge: `prama apply personal_509380bc --accept-findings` (eval found 2 citation-form issues, see defect #11) and `prama apply personal_6845bfac`. Note any memory proposals at apply (Lessons table), then `uv run pytest` on main (expect 23 passed).
+4. Then C5 (paired; Claude Code runs first). Before it: save `prompts/01-slice-capture.md` (carry-over below), commit, and switch `../slack-kb-cc` to `cmp/c5-claudecode` from the same base (main after C3+C4 merge).
+5. Prama queue (Prama repo, prama-instructor): #11 (verify vs eval claim rule) is now the most visible: it turns a clean PASS into an apply refusal. Then #2/#3 (absence claims), #8 (commit subject), #12 (banner). Optional app-side: a `.gitignore`.
+6. C9: write its prompt + both sides' scoring criteria and commit before either run; Claude Code runs first.
+7. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
+8. Schedule: ladder dates slipped; Phase 1 gate Oct 21 can't hold. Vajra sets new dates (plan ends Nov 11). Estimate given 10-21: ~40–55 h hands-on to the Nov 11 exit review; finish the ladder by ~Oct 28. C1–C4 now done or staged.
+9. Optional, from C1 diff read: `Note.created_at` accepts any string when passed explicitly; C3's `get_note` reads it back via `Note(**item)`, so a validator would apply there too.
 
 Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`, `store`, `config`, `capture`).
 
@@ -94,7 +93,8 @@ Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`,
 - Bar revised 2026-10-21 (`docs/comparison.md`): accurate / reliable / memory; speed not in the bar. Every `prama apply`: note any memory proposals and Vajra's yes/no in the Lessons table. From C3: drop a prompt CONTEXT line once its lesson is stored, then score recalled / repeated.
 - Every `prama` run: `prama eval <session>` (prama-fieldtest step 5).
 - Every session: reinstall if Prama source is newer than `~/.local/share/uv/tools/prama/uv-receipt.toml`.
-- Every `prama` run: `OPENROUTER_API_KEY` exported, `--profile ~/Projects/Prama/profiles/personal.yaml`, `| tee docs/runs/<rung>.md`.
+- Every `prama` run: `OPENROUTER_API_KEY` exported, `--profile ~/Projects/Prama/profiles/personal.yaml`, `| tee docs/runs/<rung>.md`. Set `PYDANTIC_AI_NO_BANNER=1` too (keeps the tee clean). Run with `< /dev/null` when the operator drives it.
+- `prama eval` findings block `apply`: decide `--accept-findings` only after checking each finding's claim by hand.
 - `--check` commands use `python -m …`, not `uv run …` (sandbox PATH has no `uv`). Applies to every plan p.17–18 command.
 - Pass `--scope` explicitly; check scope yourself in the diff (not enforced).
 - Blind review runs at `prama apply`, not during `task` (unless `--review`). Expect `apply_review` in the JSONL after apply.
@@ -142,3 +142,4 @@ Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`,
 - 2026-10-15: Added `prama-fieldtest` skill and `docs/operator-log.md` (not in the plan). Third record alongside ledger and field notes: what the operator did, so Vajra can see the process.
 - 2026-10-20: C10 run ahead of C1–C6 at Vajra's request (read-only `ask`, no code dependency). Also corrected the C10 expected outcome: the tutorial *does* handle retries (`ingestion/handler.py:31-32`), so the pass condition is "matches the grep", not "not found" (plan p.20).
 - 2026-10-20: C1 `--check` uses `python -m pytest tests/test_models.py` instead of the plan's `uv run pytest …` (no `uv` on the sandbox PATH); plan's ruff check dropped (project file runs it). C1 prompt adds a CONTEXT line telling the agent `uv` isn't on PATH and makes three model-shape choices for Vajra to confirm (see Next 3).
+- 2026-10-22 night: solo session at Vajra's request; the operator ran `prama task/eval`, `claude -p` and git commits itself (normally Vajra runs them). No D-###, SLICES.md, infra/, conftest or fixtures changes. C3/C4 left staged, not applied.
