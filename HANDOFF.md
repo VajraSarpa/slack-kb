@@ -71,6 +71,14 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 
 ## Next (start here)
 
+**Next session: operator runs it solo (Vajra, 10-22: "complete on your own; if you need me to approve something, let me know. I want to see what you can do").** For that session only:
+- The operator runs commands itself, including `prama task/ask/eval/apply`, git commits and `claude -p`. The one-command-per-message rule is for when Vajra types commands; it doesn't apply here.
+- Still Vajra's: approving permission prompts; `git push` (ask once at the end); anything in `infra/`, `docs/SLICES.md`, `docs/DECISIONS.md`, `tests/conftest.py`, `tests/fixtures/*`; model-shape or app choices a prompt needs (ask one question at a time, batch them up front so the runs aren't blocked); merge/discard after his diff read (stage it, don't apply, unless he says so).
+- Needs `OPENROUTER_API_KEY` in the session's shell. On 10-22 it was not visible to Claude Code's Bash; Vajra exports it before launching `claude` (or in `~/.bashrc`). If it's missing, stop and ask before any `prama` call; never print it.
+- Show-your-work rule stands: every step logged in `docs/operator-log.md` with tags; end with one summary for Vajra.
+- Planned scope, in order: (1) preflight; (2) C10 Claude Code side: `claude -p --permission-mode plan "$(cat prompts/c10-absence.md)"` from `../slack-kb-cc`, tee to `docs/runs/c10-claudecode.md`, score per comparison.md knowledge rules (note: `-p` non-interactive differs from the build-pair protocol; record it); (3) C3 `store.py` put_if_absent + moto: write `prompts/c3-store.md`, commit, run, eval, verify, record, stage for Vajra; (4) C4 `config.py` the same way if C3 went cleanly. Stop and report if a run fails in a way that needs a Pramā fix.
+
+
 1. Preflight per `prama-fieldtest` (install current as of 10-22: Prama `277b80a`, receipt 18:13:51 10-20).
 2. **C2 Claude Code side: done 10-22** (session `9bf6cdd6`, 18:59:42–19:07:51). Stopped after writing tests ("No response requested."); one `continue` finished it. 17 passed, ruff clean with its venv. Committed `6a21c7c` on local branch `cmp/c2-claudecode` in `~/Projects/slack-kb-cc`; leave it unpushed. Row in `docs/comparison.md`; $ TBD from tokens.
 3. **C2 done 10-22:** blind review Pramā 4 minor vs Claude Code 1; Vajra merged the Claude Code side (`6db642c`); main 17 passed, ruff clean. Pramā's C2 kept on branch `cmp/c2-prama` (`7a31726`, renamed from `prama/personal_ca90ad61`; worktree `~/.prama/worktrees/personal_ca90ad61` still on disk). Don't `prama apply` it; removing the worktree later leaves the branch. Remove the `../slack-kb-cc` worktree? No: it's the fixed Claude Code folder for C5/C11 (`git -C ../slack-kb-cc switch -c cmp/c5-claudecode <base>`).
