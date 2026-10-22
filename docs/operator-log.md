@@ -112,3 +112,8 @@ Logged after the fact; times approximate (local).
 - `prama eval personal_509380bc` → 2 findings (exit 1). [observed; field note]
 - verified in worktree with env python: 20 passed, ruff clean; status = 2 scoped files `A`; test-first claim holds (`obs_de940d8693d2` = ModuleNotFoundError); untested "other errors propagate" checked by hand: missing table in moto → ResourceNotFoundException raised. [manual verification]
 - diff notes for Vajra: clean, 73 lines; minor: no test for the propagate path (req 1); `table: Any`; `Note(**item)` fine while all fields are str. Not applied: staged for his read; apply needs `--accept-findings`. [judgment; deferred to Vajra]
+- 19:55:55–19:56:27 C4: same command shape as C3 plus `PYDANTIC_AI_NO_BANNER=1` (banner gone from the tee). [workaround]
+- JSONL: 10 gates all rule (T0×5, T1×2, T2×3), verify PASS, 4 claims all with evidence, ready_for_human $0.162406; `prama eval` 0 findings. [observed]
+- verified in worktree: 20 passed, ruff clean, 2 scoped files `A`; test-first claim holds (`obs_b8a0a291dece` = ModuleNotFoundError slackkb.config); untested req 3 checked by hand: no SLACKKB_NOTES_TABLE → ValidationError. [manual verification]
+- diff notes for Vajra: 10-line Settings, 3 tests; minor: no test for missing notes_table; `extra="ignore"` added unasked (harmless: other SLACKKB_ vars won't fail). Staged, not applied. [judgment; deferred to Vajra]
+- C3 and C4 both branch from main without the other; they touch disjoint files, so applying both is conflict-free (inferred; `prama apply` per session). [judgment]

@@ -48,3 +48,4 @@ Topics to watch:
 - 2026-10-22 C3: consequence: a clean pass prints `→ PASS` and `ready_for_human`, then `apply` refuses (eval findings) unless `--accept-findings`. The operator only finds out by running eval. `task` should run the eval detectors itself and say so.
 - 2026-10-22 C3: new pydantic-ai v2.54.0 banner ("observability: off …") now lands in every `task` tee; noise in run records. `PYDANTIC_AI_NO_BANNER=1` suppresses it; Pramā should set it.
 - 2026-10-22 C3: no memory proposals (`proposals: []`) although the prompt still hand-carries both Lessons-table lines (uv not on PATH; fixtures read-only).
+- 2026-10-22 C4 (personal_6845bfac): same model, same claim shape as C3, but this time the inference claim carried an evidence id → eval 0 findings. Whether eval passes depends on how the model fills one field, while verify passes both ways (see C3). Also no memory proposals again.
