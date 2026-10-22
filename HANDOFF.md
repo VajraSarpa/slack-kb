@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-22; C2 Pramā side passed, not applied; next: C2 Claude Code side, then blind A/B review)
+# SlackKB handoff (updated 2026-10-22 19:10; both C2 sides done, neither merged; next: blind A/B review)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -72,12 +72,8 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 ## Next (start here)
 
 1. Preflight per `prama-fieldtest` (install current as of 10-22: Prama `277b80a`, receipt 18:13:51 10-20).
-2. **C2 Claude Code side: set up, not launched.** Worktree `~/Projects/slack-kb-cc` on branch `cmp/c2-claudecode` at `f37d7ce`, clean; `uv sync` done there (its `.venv` imports the worktree's src, checked). The old `slack-kb-cc-c2` worktree is removed. Give Vajra these one at a time:
-   - `cd ~/Projects/slack-kb-cc && source .venv/bin/activate && which python` → must print `…/slack-kb-cc/.venv/bin/python` (the `(slack-kb)` prompt label looks the same for both venvs, so it proves nothing).
-   - `cd ~/Projects/slack-kb-cc && date` (start time; the 18:56 time from 10-22 is void, the run never started).
-   - `cd ~/Projects/slack-kb-cc && claude --permission-mode acceptEdits --disable-slash-commands "$(cat prompts/c2-slack-verify.md)"`. Tally each approval ("Yes" once, never "don't ask again") and each answer; no help. At done: `/cost`, `/exit`, `date`.
-   - Don't push `cmp/c2-claudecode` (it stays local).
-3. Score C2: diff `f37d7ce..` in `slack-kb-cc`, run checks with its venv, add the Claude Code row to `docs/comparison.md` (split agent time vs harness overhead for both sides; Pramā: ~31 s agent, ~8 s overhead). Then a fresh session for the blind A/B review (diffs labeled A/B + prompt). Vajra merges the better side (Pramā: commit records, `prama eval`, then `prama apply personal_ca90ad61`; note any memory proposals in the Lessons table).
+2. **C2 Claude Code side: done 10-22** (session `9bf6cdd6`, 18:59:42–19:07:51). Stopped after writing tests ("No response requested."); one `continue` finished it. 17 passed, ruff clean with its venv. Committed `6a21c7c` on local branch `cmp/c2-claudecode` in `~/Projects/slack-kb-cc`; leave it unpushed. Row in `docs/comparison.md`; $ TBD from tokens.
+3. Score C2: scoring done (row in `docs/comparison.md`). CC side committed `6a21c7c`. Next: a fresh session for the blind A/B review (diffs labeled A/B + prompt). Vajra merges the better side (Pramā: commit records, `prama eval`, then `prama apply personal_ca90ad61`; note any memory proposals in the Lessons table).
 4. Prama queue (Prama repo, prama-instructor): #2/#3 (absence claims), #8 (commit subject). Optional app-side: a `.gitignore` (cost C2's agent 3 of 15 tool calls).
 5. Then C3, C4 …
 6. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.

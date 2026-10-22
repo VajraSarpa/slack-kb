@@ -13,7 +13,7 @@ Three build rungs, one per level of difficulty: **C2** (level 1), **C5** (level 
    - Pramā: `prama task` from the repo root as usual.
    - Claude Code: one fixed worktree `../slack-kb-cc` for every pair, so Claude Code's folder-keyed memory can build up the way Pramā's project memory can (C2: `git worktree add -b cmp/c2-claudecode ../slack-kb-cc <base>`; later pairs: `git -C ../slack-kb-cc switch -c cmp/<rung>-claudecode <base>`). Start a fresh session there with `claude --permission-mode acceptEdits --disable-slash-commands "$(cat prompts/<rung>.md)"`, no hand edits until it says done. Known difference: `~/Projects/CLAUDE.md` loads from the parent folder.
    - Alternate which runs first (C2 Pramā first, C5 Claude Code first, C11 Pramā first).
-3. Record for each side: wall time, cost (Pramā from `prama stats`; Claude Code from `/cost`, notional if on subscription, and say so), attempts or turns, **interventions** (each time Vajra had to approve, answer, or fix something), checks pass/fail.
+3. Record for each side: wall time, cost (Pramā from `prama stats`; Claude Code from the session JSONL token usage in `~/.claude/projects/-home-vajrasarpa-Projects-slack-kb-cc/` (`--disable-slash-commands` also blocks `/cost` and `/exit`; quit with Ctrl+C twice), notional if on subscription, and say so), attempts or turns, **interventions** (each time Vajra had to approve, answer, or fix something), checks pass/fail.
 4. Blind review: a fresh Claude session gets both diffs labeled A and B (no names) plus the prompt, and lists defects in each. Vajra keeps the key.
 5. One side merges (the better one, by Vajra's call). The other stays on a branch `cmp/<rung>-<side>` for scoring.
 6. Any defect found later in that code is traced back and added to the row.
@@ -23,6 +23,7 @@ Three build rungs, one per level of difficulty: **C2** (level 1), **C5** (level 
 | rung | side | wall | cost | attempts/turns | interventions | checks | blind-review defects | later defects | merged |
 |------|------|------|------|----------------|---------------|--------|----------------------|---------------|--------|
 | C2 | Pramā (personal_ca90ad61) | 0m39s | $0.2721 | 1 attempt, 15 tool calls | 0 | 3/3 pass | pending | — | pending |
+| C2 | Claude Code (session 9bf6cdd6, Opus 5.5, `cmp/c2-claudecode`) | 8m09s door to door (18:59:42–19:07:51); ~1m10s of agent turns, ~3m35s stalled waiting | subscription; tokens: 3.3k out, 64k cache write, 228k cache read ($ TBD) | 2 turns, 6 tool calls | 3: stopped after tests with "No response requested." (Vajra typed `continue`), plus 2 Bash approvals (inferred from 11 s / 28 s waits in the log) | 17 passed, ruff clean (rerun with its venv) | pending | — | pending |
 
 ## Bar and review (Nov 11, 2026)
 
