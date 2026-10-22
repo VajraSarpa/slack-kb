@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-22 19:10; both C2 sides done, neither merged; next: blind A/B review)
+# SlackKB handoff (updated 2026-10-22 evening; C2 blind review done; next: Vajra picks the C2 side to merge)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -73,7 +73,7 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 
 1. Preflight per `prama-fieldtest` (install current as of 10-22: Prama `277b80a`, receipt 18:13:51 10-20).
 2. **C2 Claude Code side: done 10-22** (session `9bf6cdd6`, 18:59:42–19:07:51). Stopped after writing tests ("No response requested."); one `continue` finished it. 17 passed, ruff clean with its venv. Committed `6a21c7c` on local branch `cmp/c2-claudecode` in `~/Projects/slack-kb-cc`; leave it unpushed. Row in `docs/comparison.md`; $ TBD from tokens.
-3. Score C2: scoring done (row in `docs/comparison.md`). CC side committed `6a21c7c`. Next: a fresh session for the blind A/B review (diffs labeled A/B + prompt). Vajra merges the better side (Pramā: commit records, `prama eval`, then `prama apply personal_ca90ad61`; note any memory proposals in the Lessons table).
+3. **C2 blind review done 10-22** (fresh subagent, packet only; A=Pramā, B=Claude Code). Pramā 0/0/4 minor (loose `int()` timestamp + base string from parsed int: `+1700000000` verifies; redundant `_event`; test of conftest helper; no compare_digest test), Claude Code 0/0/1 (no compare_digest test). Rows in `docs/comparison.md`. **Next: Vajra picks the side to merge.** If Pramā: commit records, `prama eval`, `prama apply personal_ca90ad61`, check whether `apply_review` catches the timestamp parse (field note), note memory proposals. If Claude Code: merge `cmp/c2-claudecode` (`6a21c7c`) into main; Pramā worktree stays for scoring.
 4. Prama queue (Prama repo, prama-instructor): #2/#3 (absence claims), #8 (commit subject). Optional app-side: a `.gitignore` (cost C2's agent 3 of 15 tool calls).
 5. Then C3, C4 …
 6. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
