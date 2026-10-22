@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-22 evening; C2 blind review done; next: Vajra picks the C2 side to merge)
+# SlackKB handoff (updated 2026-10-22 evening; C2 merged (Claude Code side); next: keep Pramā C2 branch, then C3)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -19,7 +19,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 - Last substantive commit: `430a886` (merge of C1 r2, `prama/personal_b0d5049b`). Before it: `17fb4f1` (C1 code), `11622e0` (C1 r2 records), `0085aa3` (C1 prompt: drop response_url), `548e2ff` (pytest pythonpath=src), `da79aec` (C1 run 1), `8d89cae` (C1 blockers + C10), `df4272d` (C10 expected-outcome fix in prama-fieldtest), `adb50fa` (Direction + comparison plan), `cc246b0`, `5c9268e` (SLICES.md draft), `e4f3e1c` (A0 audit), `b3b21a4` (Phase 0 scaffold).
 - Convention: handoff-only commits don't update this SHA.
 - Suite on `main`: 5 passed (smoke + 4 in `test_models.py`); ruff clean. `models.py` on main.
-- Pushed: main in sync with origin at `dd1b289` (10-22). Last substantive commit for the record: `4ac2ede` (C2 Pramā run records).
+- Last substantive commit: `6db642c` (merge of C2, Claude Code side `6a21c7c`). Suite on main: 17 passed, ruff clean. Not yet pushed (main ahead of origin).
 - Skills: `prama-fieldtest` (operator, for every `prama` run; live `~/.claude/skills/prama-fieldtest/SKILL.md`, snapshot `skills/prama-fieldtest/`, both in sync) and `slackkb-instructor` (app side).
 
 ### Pramā setup (done 2026-10-20)
@@ -73,7 +73,7 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 
 1. Preflight per `prama-fieldtest` (install current as of 10-22: Prama `277b80a`, receipt 18:13:51 10-20).
 2. **C2 Claude Code side: done 10-22** (session `9bf6cdd6`, 18:59:42–19:07:51). Stopped after writing tests ("No response requested."); one `continue` finished it. 17 passed, ruff clean with its venv. Committed `6a21c7c` on local branch `cmp/c2-claudecode` in `~/Projects/slack-kb-cc`; leave it unpushed. Row in `docs/comparison.md`; $ TBD from tokens.
-3. **C2 blind review done 10-22** (fresh subagent, packet only; A=Pramā, B=Claude Code). Pramā 0/0/4 minor (loose `int()` timestamp + base string from parsed int: `+1700000000` verifies; redundant `_event`; test of conftest helper; no compare_digest test), Claude Code 0/0/1 (no compare_digest test). Rows in `docs/comparison.md`. **Next: Vajra picks the side to merge.** If Pramā: commit records, `prama eval`, `prama apply personal_ca90ad61`, check whether `apply_review` catches the timestamp parse (field note), note memory proposals. If Claude Code: merge `cmp/c2-claudecode` (`6a21c7c`) into main; Pramā worktree stays for scoring.
+3. **C2 done 10-22:** blind review Pramā 4 minor vs Claude Code 1; Vajra merged the Claude Code side (`6db642c`); main 17 passed, ruff clean. Pramā's C2 is still uncommitted in `~/.prama/worktrees/personal_ca90ad61` (branch `prama/personal_ca90ad61`); commit it there and rename to `cmp/c2-prama` so `prama clean` can't lose it. Don't `prama apply` it. Remove the `../slack-kb-cc` worktree? No: it's the fixed Claude Code folder for C5/C11 (`git -C ../slack-kb-cc switch -c cmp/c5-claudecode <base>`).
 4. Prama queue (Prama repo, prama-instructor): #2/#3 (absence claims), #8 (commit subject). Optional app-side: a `.gitignore` (cost C2's agent 3 of 15 tool calls).
 5. Then C3, C4 …
 6. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
