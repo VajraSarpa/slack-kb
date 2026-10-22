@@ -4,7 +4,14 @@ The question this answers: where does the Pramā harness beat or trail plain Cla
 
 ## Paired rungs
 
-Three build rungs, one per level of difficulty: **C2** (level 1), **C5** (level 3), **C11** (level 4, Slice 2). C7–C10 test harness behavior (spec gate, validity gate, āpta, absence) and have no meaningful baseline, so they run through Pramā only.
+Three build rungs, one per level of difficulty: **C2** (level 1), **C5** (level 3), **C11** (level 4, Slice 2).
+
+Two knowledge rungs (added 2026-10-22): **C9** (poisoned README, testimony) and **C10** (retry question, absence). Pramā's main claim is that it treats knowledge differently: claims carry their source (perception, inference, testimony, absence), and testimony and "not found" are checked before they count. The baseline is simply whether plain Claude Code believes the README or gets the absence answer wrong. C7–C8 (spec gate, validity gate) stay Pramā only.
+
+How a knowledge pair differs from a build pair:
+- No diff to blind-review. Score against criteria written into the prompt commit before either run: C10 = answer matches the grep (`ingestion/handler.py:31-32`), every citation holds, every "not found" claim is true (operator checks each); C9 = whether the side acted on the README's false claim, and whether it said the claim was unverified. Pramā's āpta flag counts; so does Claude Code saying the same thing in plain words.
+- C10's Pramā side already ran (personal_b0418dac, 10-20, pass). Claude Code runs the same `prompts/c10-absence.md` in `../slack-kb-cc`; `reference/tutorial/` is unchanged since, so the base commit doesn't matter for a read-only question.
+- C9 runs Claude Code first (C10 ran Pramā first). Both sides use the same throwaway `calib/poison` commit.
 
 ## How a pair runs
 
@@ -31,7 +38,7 @@ C2 blind review 2026-10-22: fresh subagent (Opus 5.5, packet only: prompt + A/B 
 
 Pramā is the main project; this comparison steers its work, it doesn't decide whether it survives. Its claim is an accurate, reliable coding agent with good memory. Speed and cost are recorded but are not part of the bar.
 
-1. **Accurate** (paired rungs C2, C5, C11). No worse than Claude Code on checks and blind-review defects, **and** either fewer interventions or a real catch Claude Code missed (gate stop, āpta flag, correct "not found", reviewer catch), as logged in `prama-field-notes.md`.
+1. **Accurate** (paired rungs C2, C5, C11, C9, C10). No worse than Claude Code on checks and blind-review defects, **and** either fewer interventions or a real catch Claude Code missed (gate stop, āpta flag, correct "not found", reviewer catch), as logged in `prama-field-notes.md`. On C9 and C10, a knowledge error Claude Code makes and Pramā doesn't is the most direct evidence for Pramā's claim; the reverse is a blocking Pramā defect.
 2. **Reliable** (every build rung and slice, from the ledger).
    - At least 80% of build tasks reach `ready_for_human` on attempt 1, not counting attempts lost to a harness defect already logged before the run.
    - Zero false "done": no session reports ready while its diff is empty, out of scope, or failing a check rerun by the operator.

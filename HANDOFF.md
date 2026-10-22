@@ -19,7 +19,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 - Last substantive commit: `430a886` (merge of C1 r2, `prama/personal_b0d5049b`). Before it: `17fb4f1` (C1 code), `11622e0` (C1 r2 records), `0085aa3` (C1 prompt: drop response_url), `548e2ff` (pytest pythonpath=src), `da79aec` (C1 run 1), `8d89cae` (C1 blockers + C10), `df4272d` (C10 expected-outcome fix in prama-fieldtest), `adb50fa` (Direction + comparison plan), `cc246b0`, `5c9268e` (SLICES.md draft), `e4f3e1c` (A0 audit), `b3b21a4` (Phase 0 scaffold).
 - Convention: handoff-only commits don't update this SHA.
 - Suite on `main`: 5 passed (smoke + 4 in `test_models.py`); ruff clean. `models.py` on main.
-- Last substantive commit: `6db642c` (merge of C2, Claude Code side `6a21c7c`). Suite on main: 17 passed, ruff clean. Not yet pushed (main ahead of origin).
+- Last substantive commit: `6db642c` (merge of C2, Claude Code side `6a21c7c`). Suite on main: 17 passed, ruff clean. Pushed 10-22 (main in sync at `ec77070`).
 - Skills: `prama-fieldtest` (operator, for every `prama` run; live `~/.claude/skills/prama-fieldtest/SKILL.md`, snapshot `skills/prama-fieldtest/`, both in sync) and `slackkb-instructor` (app side).
 
 ### Pramā setup (done 2026-10-20)
@@ -53,7 +53,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 
 ## Direction (Vajra, 2026-10-20)
 - **Pramā is the main project** (Vajra's coding agent harness). SlackKB is the app built with Pramā as the harness; its runs drive Pramā's next work (Rupa is now separate). Pramā changes come from what runs here show: one line in `docs/prama-field-notes.md` first, then the fix in the Prama repo, then reinstall.
-- Paired rungs **C2, C5, C11** also run in plain Claude Code. Protocol, results table and the Nov 11 review (shortfalls become Pramā work items, not a stop): `docs/comparison.md`. Write and commit each paired rung's prompt before either run.
+- Paired rungs **C2, C5, C11** (build) and **C9, C10** (knowledge, added 10-22: Pramā's main claim is that it treats knowledge differently, so that needs a baseline) also run in plain Claude Code. Protocol, results table and the Nov 11 review (shortfalls become Pramā work items, not a stop): `docs/comparison.md`. Write and commit each paired rung's prompt before either run.
 - ACP (Prama V3 B1) can be tried on a rung here if it helps; it's not a separate item.
 - **Schedule slipped:** the ladder dates below run Oct 15–21 and C1 hasn't run. The Phase 1 gate (Oct 21) can't hold. Vajra to set new dates (the plan ends Nov 11).
 
@@ -75,7 +75,7 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 2. **C2 Claude Code side: done 10-22** (session `9bf6cdd6`, 18:59:42–19:07:51). Stopped after writing tests ("No response requested."); one `continue` finished it. 17 passed, ruff clean with its venv. Committed `6a21c7c` on local branch `cmp/c2-claudecode` in `~/Projects/slack-kb-cc`; leave it unpushed. Row in `docs/comparison.md`; $ TBD from tokens.
 3. **C2 done 10-22:** blind review Pramā 4 minor vs Claude Code 1; Vajra merged the Claude Code side (`6db642c`); main 17 passed, ruff clean. Pramā's C2 kept on branch `cmp/c2-prama` (`7a31726`, renamed from `prama/personal_ca90ad61`; worktree `~/.prama/worktrees/personal_ca90ad61` still on disk). Don't `prama apply` it; removing the worktree later leaves the branch. Remove the `../slack-kb-cc` worktree? No: it's the fixed Claude Code folder for C5/C11 (`git -C ../slack-kb-cc switch -c cmp/c5-claudecode <base>`).
 4. Prama queue (Prama repo, prama-instructor): #2/#3 (absence claims), #8 (commit subject). Optional app-side: a `.gitignore` (cost C2's agent 3 of 15 tool calls).
-5. Then C3, C4 …
+5. Then C3, C4 … Any time before C11: run C10's Claude Code side (same `prompts/c10-absence.md`, in `../slack-kb-cc`, read-only; score per `docs/comparison.md` knowledge-pair rules). C9: write its prompt + both sides' scoring criteria and commit before either run; Claude Code runs first.
 6. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
 7. Schedule: ladder dates slipped; Phase 1 gate Oct 21 can't hold. Vajra sets new dates (plan ends Nov 11). Estimate given 10-21: ~40–55 h hands-on to the Nov 11 exit review (52–75 h with seeded eval suites); finish the ladder by ~Oct 28. Recommended (not yet decided): `prama eval` every run (in skill now), seeded recall suites for testimony (C9) + absence (C10) before Nov 11 (~6 h), the other two suites and any public benchmark after.
 8. Optional, from C1 diff read: `Note.created_at` accepts any string when passed explicitly; consider a validator when C3 reads notes back.
