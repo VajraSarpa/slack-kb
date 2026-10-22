@@ -55,5 +55,5 @@ On Nov 11 the results go in `docs/verdict.md`. For each place Pramā fell short,
 
 | lesson | first carried by hand | proposed by Pramā (session) | stored | prompt line dropped at | recalled / repeated / not stored |
 |--------|----------------------|-----------------------------|--------|------------------------|----------------------------------|
-| `uv` not on sandbox PATH; use `python -m` | C1 | — | no | — | not stored |
-| fixtures + conftest read-only | C1 | — | no | — | not stored |
+| `uv` not on sandbox PATH; use `python -m` | C1 | — (C3: no proposals) | no | — | not stored; repeated C2, C3 |
+| fixtures + conftest read-only | C1 | — (C3: no proposals) | no | — | not stored; repeated C2, C3 |
