@@ -99,3 +99,10 @@ Logged after the fact; times approximate (local).
 - review back: A 0/0/4, B 0/0/2. Checked the unverified ones: A's `+1700000000` header verifies (ran `verify` in the Pramā worktree) → confirmed; B's "non-deterministic now" → dropped (fixture default ts = `int(time.time())`, `conftest.py:55`). Unblinded: A=Pramā, B=Claude Code. Rows filled in `docs/comparison.md`. [manual verification]
 - Vajra chose the Claude Code side; he merged `cmp/c2-claudecode` → `6db642c`. Operator rerun on main: 17 passed, ruff clean. Pramā C2 not applied; still uncommitted in its worktree. [manual verification; Vajra decided]
 - Pramā C2 committed in its worktree (`7a31726`; first try committed nothing: intent-to-add files need `git add`, my command left it out) and branch renamed to `cmp/c2-prama`. [operator error; Vajra ran git]
+
+## 2026-10-22 (night) — solo session: C10 Claude Code side, C3, C4
+- preflight: git = handoff (`521f043`, clean, in sync); install 18:13:51 vs Prama `277b80a` 18:13:11 → current; key file 600 + `slack-kb.yaml` present. Running commands myself per HANDOFF Next (solo session). [manual verification]
+- 19:50 ground truth: `grep -rn -i -E "retry|dedup|X-Slack" reference/tutorial` → README 15/87, `handler.py:31,32` (+49/50 header reads). `../slack-kb-cc` tutorial identical except an empty untracked `demo/screenshots/`. [manual verification]
+- 19:50:53–19:51:28 C10 Claude Code side: `claude -p --permission-mode plan --output-format json` from `../slack-kb-cc`; JSON kept (`docs/runs/c10-claudecode.json`) for turns/cost/session id instead of a plain tee. [judgment]
+- checked all 12 citations and the absence claims (`event_id|client_msg_id|attribute_not_exists|MaximumRetryAttempts|EventInvokeConfig|idempot` → only the two read-side `KeyConditionExpression`s); file count 19 correct. All hold. [manual verification]
+- `prama eval personal_b0418dac personal_cf139733` (C10, A0; never replayed) → 0 findings each. C1 run 1 not replayed (session superseded). [operator step missed earlier]
