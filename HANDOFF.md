@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-22 evening; C2 merged (Claude Code side); next: keep Pramā C2 branch, then C3)
+# SlackKB handoff (updated 2026-10-22 evening; C2 merged (Claude Code side); next: C3)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -73,7 +73,7 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 
 1. Preflight per `prama-fieldtest` (install current as of 10-22: Prama `277b80a`, receipt 18:13:51 10-20).
 2. **C2 Claude Code side: done 10-22** (session `9bf6cdd6`, 18:59:42–19:07:51). Stopped after writing tests ("No response requested."); one `continue` finished it. 17 passed, ruff clean with its venv. Committed `6a21c7c` on local branch `cmp/c2-claudecode` in `~/Projects/slack-kb-cc`; leave it unpushed. Row in `docs/comparison.md`; $ TBD from tokens.
-3. **C2 done 10-22:** blind review Pramā 4 minor vs Claude Code 1; Vajra merged the Claude Code side (`6db642c`); main 17 passed, ruff clean. Pramā's C2 is still uncommitted in `~/.prama/worktrees/personal_ca90ad61` (branch `prama/personal_ca90ad61`); commit it there and rename to `cmp/c2-prama` so `prama clean` can't lose it. Don't `prama apply` it. Remove the `../slack-kb-cc` worktree? No: it's the fixed Claude Code folder for C5/C11 (`git -C ../slack-kb-cc switch -c cmp/c5-claudecode <base>`).
+3. **C2 done 10-22:** blind review Pramā 4 minor vs Claude Code 1; Vajra merged the Claude Code side (`6db642c`); main 17 passed, ruff clean. Pramā's C2 kept on branch `cmp/c2-prama` (`7a31726`, renamed from `prama/personal_ca90ad61`; worktree `~/.prama/worktrees/personal_ca90ad61` still on disk). Don't `prama apply` it; removing the worktree later leaves the branch. Remove the `../slack-kb-cc` worktree? No: it's the fixed Claude Code folder for C5/C11 (`git -C ../slack-kb-cc switch -c cmp/c5-claudecode <base>`).
 4. Prama queue (Prama repo, prama-instructor): #2/#3 (absence claims), #8 (commit subject). Optional app-side: a `.gitignore` (cost C2's agent 3 of 15 tool calls).
 5. Then C3, C4 …
 6. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
