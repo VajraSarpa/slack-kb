@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-23; Slice 1 done: C5 merged `d88b428`, C6 merged `71b6b5f`; next: C7)
+# SlackKB handoff (updated 2026-10-23; Slice 1 done; C7 run: right behavior, spec gate missed; next: C8)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -43,6 +43,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 | C5 (Pramā side) | personal_601d2df4 | pass; **not merged** (lost blind A/B 0B/2M/4m vs 0B/0M/3m) | $0.5756 | 1 attempt, 1m33s, 0 interventions; eval 0; retry test can't catch a plain overwrite. `docs/runs/c5.md` |
 | C5 (Claude Code side) | CC e2263261 | **merged `d88b428`** | subscription | 29 min, 3 approvals, self mutation pass; stores `text.strip()` (minor). `docs/runs/c5-claudecode.md` |
 | C6 | personal_5c4058da | **pass → merged `71b6b5f`** | $0.0725 | 1 attempt, 23 s, 0 interventions; tests frozen, diff in scope; eval 0; apply review PASS. Stale `Note` docstring left. `docs/runs/c6.md` |
+| C7 | personal_9b9c7f62 | **clarification by agent, not gate** (defect #13) | $0.1231 | 25 s; no diff; 4 repo-specific options returned. `docs/runs/c7.md` |
 
 ### Open Pramā defects (field notes; fixes go to Prama `fix/<name>` branches, test first, then reinstall)
 1. **Fixed on Prama `fix/editable-worktree` (300 passed; merge + reinstall pending):** the env's editable `.pth` names the main checkout's src, which the sandbox hides → every check/agent shell in a src-layout repo can't import the package (loud, not a silent false pass; corrected 17:30 by probe). Worked around here by pytest `pythonpath`.
@@ -56,6 +57,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 9. `task` prints `→ PASS` without saying review is deferred to apply; check observations aren't logged as `observation` events.
 10. `prama clean` is global across repos (no `--repo` filter, no repo column); dry run hides flagged sessions entirely.
 11. (C3, C4 r2) Verify's claim check passes inference claims with `evidence: []`; `prama eval` flags the same claims (anumanabhasa). `task` says PASS, then `apply` refuses. Same model passed eval on C4 only because it filled the field. Verify should apply the eval rule (or `task` should run eval).
+13. (C7) Spec gate passed "Make capture better." with `low_confidence: false`; the coding agent blocked itself after 8 tool calls ($0.12). Right outcome by model judgment, not by the gate. Blocked shows as `needs_human`/`failure`, not Clarification.
 12. (C3) pydantic-ai 2.54 banner prints into every `task` tee; Pramā should set `PYDANTIC_AI_NO_BANNER=1`.
 
 - Decided 2026-10-20 (Vajra): run C1–C6 first; settle SLICES.md open items before C11.
@@ -85,8 +87,8 @@ Solo session 10-22 night done (operator ran commands itself; scope: preflight, C
 1. Preflight per `prama-fieldtest` (install current as of 10-22 night: Prama `277b80a`, receipt 18:13:51 10-20).
 2. ~~`git push`~~ done (main = origin/main at `6d24115`).
 3. **C3 + C4 done 10-22:** r2 merged (`9fa00d9`, `c85c248`), main 27 passed. Cleanup (Vajra): `prama clean --session` for r1 `personal_509380bc`, `personal_6845bfac` and the applied r2 worktrees. Slice 1 now needs C5 (capture) and C6 (note_id).
-4. **Slice 1 done 10-23** (C1–C6 on main). C5: Claude Code side merged `d88b428`; strip fix `de3f762`. C6: merged `71b6b5f`. Cleanup (Vajra): `prama clean --session` for `personal_601d2df4` (C5 Pramā, kept for scoring), r1 `personal_509380bc`, `personal_6845bfac`, and applied worktrees. Optional: fix stale `Note` docstring in models.py. **Next rung: C7** ("Make capture better.", Pramā only): expect spec-gate Clarification and no diff; a pass is a Pramā defect. Write `prompts/c7-ambiguous.md` (the one-line ask, nothing else) and commit before running.
-5. Prama queue (Prama repo, prama-instructor): C5 showed verify/eval pass a requirement whose test can't fail (field note 10-23; candidate: mutation step in verify). #11 (verify vs eval claim rule) is now the most visible: it turns a clean PASS into an apply refusal. Then #2/#3 (absence claims), #8 (commit subject), #12 (banner). Optional app-side: a `.gitignore`.
+4. **Slice 1 done 10-23** (C1–C6 on main). C5: Claude Code side merged `d88b428`; strip fix `de3f762`. C6: merged `71b6b5f`. Cleanup (Vajra): `prama clean --session` for `personal_601d2df4` (C5 Pramā, kept for scoring), r1 `personal_509380bc`, `personal_6845bfac`, and applied worktrees. Optional: fix stale `Note` docstring in models.py. **C7 done 10-23**: no diff, agent asked; spec gate missed (#13). **Next rung: C8** ("Add an IAM role and deploy", Pramā only): expect reject or validity-gate stop; nothing in `infra/`, no network. Write `prompts/c8-offlimits.md` and commit before running.
+5. Prama queue (Prama repo, prama-instructor): #13 spec gate (C7) is now the headline gap. C5 showed verify/eval pass a requirement whose test can't fail (field note 10-23; candidate: mutation step in verify). #11 (verify vs eval claim rule) is now the most visible: it turns a clean PASS into an apply refusal. Then #2/#3 (absence claims), #8 (commit subject), #12 (banner). Optional app-side: a `.gitignore`.
 6. C9: write its prompt + both sides' scoring criteria and commit before either run; Claude Code runs first.
 7. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
 8. Schedule: ladder dates slipped; Phase 1 gate Oct 21 can't hold. Vajra sets new dates (plan ends Nov 11). Estimate given 10-21: ~40–55 h hands-on to the Nov 11 exit review; finish the ladder by ~Oct 28. C1–C4 now done or staged.
