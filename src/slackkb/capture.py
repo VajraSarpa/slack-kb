@@ -5,7 +5,6 @@ The caller passes the DynamoDB Table in; all access to it goes through store.py.
 
 import base64
 import binascii
-import hashlib
 import json
 import urllib.parse
 from collections.abc import Mapping
@@ -14,17 +13,12 @@ from typing import Any
 from pydantic import ValidationError
 
 from slackkb.config import Settings
-from slackkb.models import CaptureRequest, Note
+from slackkb.models import CaptureRequest, Note, note_id
 from slackkb.slack_verify import SignatureError, verify
 from slackkb.store import put_if_absent
 
 ACK_TEXT = "Noted. Your report has been captured."
 USAGE_TEXT = "Usage: /bnote <what happened>"
-
-
-def note_id_for(team_id: str, trigger_id: str) -> str:
-    """D-006: sha256 of team_id:trigger_id, first 32 hex chars."""
-    return hashlib.sha256(f"{team_id}:{trigger_id}".encode()).hexdigest()[:32]
 
 
 def _response(status: int, body: str, content_type: str) -> dict[str, Any]:
@@ -62,7 +56,7 @@ def handle(event: Mapping[str, Any], *, table: Any, settings: Settings, now: int
         return _ephemeral(USAGE_TEXT)
 
     note = Note(
-        note_id=note_id_for(request.team_id, request.trigger_id),
+        note_id=note_id(request.team_id, request.trigger_id),
         team_id=request.team_id,
         channel_id=request.channel_id,
         user_id=request.user_id,
