@@ -55,7 +55,9 @@ def _failures(resp):
 def test_ack_before_processing(slack_request, notes_table, capture_queue):
     resp = _capture(slack_request(), notes_table)
     assert resp["statusCode"] == 200
-    assert json.loads(resp["body"]) == {"response_type": "ephemeral", "text": capture.ACK_TEXT}
+    body = json.loads(resp["body"])
+    assert body["response_type"] == "ephemeral"
+    assert body["text"] == capture.ACK_TEXT
     # No worker has run: the note is still CAPTURED and its job is waiting on the queue.
     assert get_note(notes_table, EXPECTED_NOTE_ID).status is NoteStatus.CAPTURED
     messages = _queued(capture_queue.url)

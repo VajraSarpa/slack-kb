@@ -1,5 +1,5 @@
 import pytest
-from conftest import NOTES_TABLE, SIGNING_SECRET
+from conftest import BOT_TOKEN, NOTES_TABLE, SIGNING_SECRET
 from pydantic import SecretStr, ValidationError
 
 from slackkb.config import Settings
@@ -55,3 +55,16 @@ def test_dotenv_not_read(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValidationError):
         Settings()
+
+
+def test_missing_slack_bot_token_fails(monkeypatch):
+    monkeypatch.delenv("SLACKKB_SLACK_BOT_TOKEN")
+    with pytest.raises(ValidationError):
+        Settings()
+
+
+def test_bot_token_is_secret():
+    s = Settings()
+    assert isinstance(s.slack_bot_token, SecretStr)
+    assert BOT_TOKEN not in repr(s)
+    assert BOT_TOKEN not in str(s)
