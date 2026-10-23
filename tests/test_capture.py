@@ -5,6 +5,7 @@ import json
 import time
 from pathlib import Path
 
+import boto3
 import pytest
 from conftest import SIGNING_SECRET
 
@@ -20,7 +21,8 @@ EXPECTED_NOTE_ID = hashlib.sha256(f"{TEAM_ID}:{TRIGGER_ID}".encode()).hexdigest(
 
 def _handle(event, table, now=None):
     now = int(time.time()) if now is None else now
-    return handle(event, table=table, settings=Settings(), now=now)
+    sqs = boto3.client("sqs")
+    return handle(event, table=table, sqs=sqs, settings=Settings(), now=now)
 
 
 def _items(table):
@@ -33,7 +35,7 @@ def _assert_rejected(resp, table):
     assert _items(table) == []
 
 
-def test_valid_request_writes_note(slack_request, notes_table):
+def test_valid_request_writes_note(slack_request, notes_table, capture_queue):
     resp = _handle(slack_request(), notes_table)
     assert resp["statusCode"] == 200
     note = get_note(notes_table, EXPECTED_NOTE_ID)
@@ -46,16 +48,16 @@ def test_valid_request_writes_note(slack_request, notes_table):
     assert note.status.value == "CAPTURED"
 
 
-def test_text_saved_as_typed(slack_request, notes_table):
+def test_text_saved_as_typed(slack_request, notes_table, capture_queue):
     _handle(slack_request(text="  padded note  "), notes_table)
     assert get_note(notes_table, EXPECTED_NOTE_ID).text == "  padded note  "
 
 
-def test_bad_signature_returns_401_and_writes_nothing(slack_request, notes_table):
+def test_bad_signature_returns_401_and_writes_nothing(slack_request, notes_table, capture_queue):
     _assert_rejected(_handle(slack_request(secret="wrong-secret"), notes_table), notes_table)
 
 
-def test_bad_signature_rejected_before_parsing(slack_request, notes_table):
+def test_bad_signature_rejected_before_parsing(slack_request, notes_table, capture_queue):
     event = slack_request()
     event["body"] = "not=a&valid=form"
     _assert_rejected(_handle(event, notes_table), notes_table)
@@ -69,29 +71,29 @@ def test_bad_signature_rejected_before_parsing(slack_request, notes_table):
         ("X-Slack-Signature", "X-Slack-Request-Timestamp"),
     ],
 )
-def test_missing_headers_rejected(slack_request, notes_table, drop):
+def test_missing_headers_rejected(slack_request, notes_table, capture_queue, drop):
     _assert_rejected(_handle(slack_request(drop=drop), notes_table), notes_table)
 
 
-def test_missing_headers_map_rejected(slack_request, notes_table):
+def test_missing_headers_map_rejected(slack_request, notes_table, capture_queue):
     event = slack_request()
     event["headers"] = None
     _assert_rejected(_handle(event, notes_table), notes_table)
 
 
-def test_stale_timestamp_rejected(slack_request, notes_table):
+def test_stale_timestamp_rejected(slack_request, notes_table, capture_queue):
     now = int(time.time())
     event = slack_request(ts=now - 301)
     _assert_rejected(_handle(event, notes_table, now=now), notes_table)
 
 
-def test_lowercase_headers_accepted(slack_request, notes_table):
+def test_lowercase_headers_accepted(slack_request, notes_table, capture_queue):
     resp = _handle(slack_request(lowercase_headers=True), notes_table)
     assert resp["statusCode"] == 200
     assert get_note(notes_table, EXPECTED_NOTE_ID) is not None
 
 
-def test_base64_body_accepted(slack_request, notes_table):
+def test_base64_body_accepted(slack_request, notes_table, capture_queue):
     event = slack_request()
     event["body"] = base64.b64encode(event["body"].encode()).decode()
     event["isBase64Encoded"] = True
@@ -100,7 +102,7 @@ def test_base64_body_accepted(slack_request, notes_table):
     assert get_note(notes_table, EXPECTED_NOTE_ID) is not None
 
 
-def test_retry_does_not_duplicate(slack_request, notes_table):
+def test_retry_does_not_duplicate(slack_request, notes_table, capture_queue):
     first = _handle(slack_request(), notes_table)
     # Same trigger_id, different text: the conditional put must keep the first note.
     second = _handle(slack_request(retry=1, text="replayed text"), notes_table)
@@ -110,7 +112,7 @@ def test_retry_does_not_duplicate(slack_request, notes_table):
     assert len(_items(notes_table)) == 1
 
 
-def test_note_id_is_sha256_of_team_and_trigger(slack_request, notes_table):
+def test_note_id_is_sha256_of_team_and_trigger(slack_request, notes_table, capture_queue):
     _handle(slack_request(), notes_table)
     items = _items(notes_table)
     assert len(items) == 1
@@ -119,7 +121,7 @@ def test_note_id_is_sha256_of_team_and_trigger(slack_request, notes_table):
 
 
 @pytest.mark.parametrize("text", ["", "   ", "\t\n"])
-def test_empty_text_returns_usage_hint(slack_request, notes_table, text):
+def test_empty_text_returns_usage_hint(slack_request, notes_table, capture_queue, text):
     resp = _handle(slack_request(text=text), notes_table)
     assert resp["statusCode"] == 200
     body = json.loads(resp["body"])
@@ -128,7 +130,7 @@ def test_empty_text_returns_usage_hint(slack_request, notes_table, text):
     assert _items(notes_table) == []
 
 
-def test_ack_is_ephemeral_200(slack_request, notes_table):
+def test_ack_is_ephemeral_200(slack_request, notes_table, capture_queue):
     resp = _handle(slack_request(), notes_table)
     assert resp["statusCode"] == 200
     assert resp["headers"]["Content-Type"] == "application/json"

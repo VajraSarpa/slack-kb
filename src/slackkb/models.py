@@ -16,6 +16,8 @@ class Severity(str, Enum):  # noqa: UP042
 
 class NoteStatus(str, Enum):  # noqa: UP042
     CAPTURED = "CAPTURED"
+    ROUTED = "ROUTED"
+    FAILED = "FAILED"
 
 
 def _utc_now_iso() -> str:
@@ -51,3 +53,9 @@ class CaptureRequest(BaseModel):
     command: str
     text: str
     trigger_id: str
+
+
+class CaptureJob(BaseModel):
+    """SQS message body from capture to the worker (Slice 2, D-004)."""
+
+    note_id: str = Field(pattern=r"^[0-9a-f]{32}$")

@@ -1,11 +1,13 @@
-"""/bnote capture handler: verify -> parse -> write -> ack (Slice 1, rung C5).
+"""/bnote capture handler: verify -> parse -> write CAPTURED -> enqueue -> ack (Slice 2).
 
-The caller passes the DynamoDB Table in; all access to it goes through store.py.
+The caller passes the DynamoDB Table and SQS client in; all access to them goes
+through store.py and queue.py. Processing happens in worker.py (D-004).
 """
 
 import base64
 import binascii
 import json
+import logging
 import urllib.parse
 from collections.abc import Mapping
 from typing import Any
@@ -13,12 +15,16 @@ from typing import Any
 from pydantic import ValidationError
 
 from slackkb.config import Settings
-from slackkb.models import CaptureRequest, Note, note_id
+from slackkb.models import CaptureJob, CaptureRequest, Note, note_id
+from slackkb.queue import EnqueueError, send_capture_job
 from slackkb.slack_verify import SignatureError, verify
 from slackkb.store import put_if_absent
 
+logger = logging.getLogger(__name__)
+
 ACK_TEXT = "Noted. Your report has been captured."
 USAGE_TEXT = "Usage: /bnote <what happened>"
+RETRY_TEXT = "Sorry, we couldn't process your report, please try again."
 
 
 def _response(status: int, body: str, content_type: str) -> dict[str, Any]:
@@ -37,7 +43,9 @@ def _raw_body(event: Mapping[str, Any]) -> str:
     return body
 
 
-def handle(event: Mapping[str, Any], *, table: Any, settings: Settings, now: int) -> dict:
+def handle(
+    event: Mapping[str, Any], *, table: Any, sqs: Any, settings: Settings, now: int
+) -> dict:
     """Handle one API Gateway proxy event for /bnote and return the proxy response."""
     headers = event.get("headers") or {}
     try:
@@ -62,5 +70,11 @@ def handle(event: Mapping[str, Any], *, table: Any, settings: Settings, now: int
         user_id=request.user_id,
         text=request.text,
     )
-    put_if_absent(table, note)
+    if not put_if_absent(table, note):
+        return _ephemeral(ACK_TEXT)
+    try:
+        send_capture_job(sqs, settings.capture_queue_url, CaptureJob(note_id=note.note_id))
+    except EnqueueError as exc:
+        logger.warning("enqueue failed (%s), note_id=%s", exc, note.note_id)
+        return _ephemeral(RETRY_TEXT)
     return _ephemeral(ACK_TEXT)

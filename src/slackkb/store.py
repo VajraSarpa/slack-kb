@@ -7,7 +7,7 @@ from typing import Any
 
 from botocore.exceptions import ClientError
 
-from slackkb.models import Note
+from slackkb.models import Note, NoteStatus
 
 
 def put_if_absent(table: Any, note: Note) -> bool:
@@ -30,3 +30,37 @@ def get_note(table: Any, note_id: str) -> Note | None:
     if item is None:
         return None
     return Note.model_validate(item)
+
+
+class NoteNotFoundError(LookupError):
+    """No note with that note_id exists."""
+
+
+def transition_status(
+    table: Any,
+    note_id: str,
+    to: NoteStatus,
+    *,
+    expected: NoteStatus = NoteStatus.CAPTURED,
+) -> bool:
+    """D-009: set status to `to` only if it is currently `expected`.
+
+    True if updated, False if the note is in another status (left unchanged).
+    Raises NoteNotFoundError if there is no such note.
+    """
+    try:
+        table.update_item(
+            Key={"note_id": note_id},
+            UpdateExpression="SET #status = :to",
+            ConditionExpression="attribute_exists(note_id) AND #status = :expected",
+            ExpressionAttributeNames={"#status": "status"},
+            ExpressionAttributeValues={":to": to.value, ":expected": expected.value},
+        )
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") != "ConditionalCheckFailedException":
+            raise
+        item = table.get_item(Key={"note_id": note_id}, ProjectionExpression="note_id")
+        if "Item" not in item:
+            raise NoteNotFoundError(note_id) from None
+        return False
+    return True
