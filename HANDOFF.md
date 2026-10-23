@@ -16,9 +16,9 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 
 ## State (2026-10-22)
 - Repo: `VajraSarpa/slack-kb` (private), `main` tracks `origin/main`.
-- Last substantive commit: `27d308f` (C3/C4 r2 records). Before it: `19ba6cd` (C3/C4 prompts r2), `1bd002d` (C4 run records), `ca09376` (C3 run records), `77ba69f` (C3/C4 prompts), `492fe1a` (C10 Claude Code side), `6db642c` (merge of C2, Claude Code side `6a21c7c`), `430a886` (merge of C1 r2), `548e2ff` (pytest pythonpath=src), `b3b21a4` (Phase 0 scaffold).
+- Last substantive commit: `c85c248` (merge of C4 r2). Before it: `9fa00d9` (merge of C3 r2), `27d308f` (C3/C4 r2 records), `19ba6cd` (C3/C4 prompts r2), `1bd002d` (C4 run records), `ca09376` (C3 run records), `77ba69f` (C3/C4 prompts), `492fe1a` (C10 Claude Code side), `6db642c` (merge of C2, Claude Code side `6a21c7c`), `430a886` (merge of C1 r2), `548e2ff` (pytest pythonpath=src), `b3b21a4` (Phase 0 scaffold).
 - Convention: handoff-only commits don't update this SHA.
-- Suite on `main`: 17 passed, ruff clean (`models.py`, `slack_verify.py`). C3/C4 r2 not applied yet. Pushed `ca8e28f` 10-22; later commits local until Vajra says push.
+- Suite on `main`: 27 passed, ruff clean (`models`, `slack_verify`, `store`, `config`). Pushed `58d45b4`; the merges + records are local until Vajra says push.
 - Skills: `prama-fieldtest` (operator, for every `prama` run; live `~/.claude/skills/prama-fieldtest/SKILL.md`, snapshot `skills/prama-fieldtest/`, both in sync) and `slackkb-instructor` (app side).
 
 ### Pramā setup (done 2026-10-20)
@@ -38,8 +38,8 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 | C10 (Claude Code side) | CC 97e5a177 | **accurate** (= grep, 12 cites hold, absence true) | $0.389 API-equiv | `claude -p --permission-mode plan`, 7 turns, 32 s. Tie with Pramā on accuracy. `docs/runs/c10-claudecode.md` |
 | C3 | personal_509380bc | pass; **discarded** (Vajra diff read: propagate path untested) | $0.1563 | 1 attempt, ~49 s, 12 tool calls; 20 passed in worktree; **eval 2 findings** (inference claims, empty evidence; claims true) → apply needs `--accept-findings`. `docs/runs/c3.md` |
 | C4 | personal_6845bfac | pass; **discarded** (Vajra diff read) | $0.1624 | missing notes_table test; `extra="ignore"` bypass. `docs/runs/c4.md` |
-| C3 r2 | personal_877cd35a | **pass**, staged | $0.2468 | 21 passed; eval 0; propagate test added (mutation-checked). `docs/runs/c3-r2.md` |
-| C4 r2 | personal_4a2f7ff2 | **pass**, staged | $0.2829 | 23 passed; eval 1 (defect #11); no `extra`, unknown kwarg rejected (mutation-checked). `docs/runs/c4-r2.md` |
+| C3 r2 | personal_877cd35a | **pass → merged `9fa00d9`** | $0.2468 | 21 passed; eval 0; propagate test added (mutation-checked). `docs/runs/c3-r2.md` |
+| C4 r2 | personal_4a2f7ff2 | **pass → merged `c85c248`** (`--accept-findings`) | $0.2829 | 23 passed; eval 1 (defect #11); no `extra`, unknown kwarg rejected (mutation-checked). `docs/runs/c4-r2.md` |
 
 ### Open Pramā defects (field notes; fixes go to Prama `fix/<name>` branches, test first, then reinstall)
 1. **Fixed on Prama `fix/editable-worktree` (300 passed; merge + reinstall pending):** the env's editable `.pth` names the main checkout's src, which the sandbox hides → every check/agent shell in a src-layout repo can't import the package (loud, not a silent false pass; corrected 17:30 by probe). Worked around here by pytest `pythonpath`.
@@ -81,8 +81,8 @@ Solo session 10-22 night done (operator ran commands itself; scope: preflight, C
 
 1. Preflight per `prama-fieldtest` (install current as of 10-22 night: Prama `277b80a`, receipt 18:13:51 10-20).
 2. `git push` when Vajra says (r2 commits are local).
-3. **Vajra: diff read of C3 r2 and C4 r2**, then decide. Staged as uncommitted `A` files: C3 r2 `~/.prama/worktrees/personal_877cd35a`, C4 r2 `~/.prama/worktrees/personal_4a2f7ff2`. r1 (`personal_509380bc`, `personal_6845bfac`) discarded: remove with `prama clean --session <id>`. Notes: C4 tests import constants from conftest; C4 added an unasked `.env` test. To merge: `prama apply personal_877cd35a` and `prama apply personal_4a2f7ff2 --accept-findings` (defect #11, claim checked true); note memory proposals; `uv run pytest` on main (expect 27 passed: 17 + 4 + 6).
-4. Then C5 (paired; Claude Code runs first). Before it: save `prompts/01-slice-capture.md` (carry-over below), commit, and switch `../slack-kb-cc` to `cmp/c5-claudecode` from the same base (main after C3+C4 merge).
+3. **C3 + C4 done 10-22:** r2 merged (`9fa00d9`, `c85c248`), main 27 passed. Cleanup (Vajra): `prama clean --session` for r1 `personal_509380bc`, `personal_6845bfac` and the applied r2 worktrees. Slice 1 now needs C5 (capture) and C6 (note_id).
+4. Next: C5 (paired; Claude Code runs first). Before it: save `prompts/01-slice-capture.md` (carry-over below) and add "every requirement has a test that fails if broken" (worked in C3/C4 r2), commit, and switch `../slack-kb-cc` to `cmp/c5-claudecode` from that commit. `prama apply` asks `[y/N]` after review: operator pipes `echo y |` only with Vajra's go-ahead.
 5. Prama queue (Prama repo, prama-instructor): #11 (verify vs eval claim rule) is now the most visible: it turns a clean PASS into an apply refusal. Then #2/#3 (absence claims), #8 (commit subject), #12 (banner). Optional app-side: a `.gitignore`.
 6. C9: write its prompt + both sides' scoring criteria and commit before either run; Claude Code runs first.
 7. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
