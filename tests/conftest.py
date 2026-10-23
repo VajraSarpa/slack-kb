@@ -15,6 +15,7 @@ BOT_TOKEN = "xoxb-test-token"
 NOTES_TABLE = "slackkb-notes-test"
 CAPTURE_QUEUE = "slackkb-capture-test"
 CAPTURE_DLQ = "slackkb-capture-dlq-test"
+NOTES_BUCKET = "slackkb-notes-test"
 MAX_RECEIVES = 3
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -29,6 +30,7 @@ def offline_env(monkeypatch):
     monkeypatch.setenv("SLACKKB_SIGNING_SECRET", SIGNING_SECRET)
     monkeypatch.setenv("SLACKKB_NOTES_TABLE", NOTES_TABLE)
     monkeypatch.setenv("SLACKKB_SLACK_BOT_TOKEN", BOT_TOKEN)
+    monkeypatch.setenv("SLACKKB_NOTES_BUCKET", NOTES_BUCKET)
 
 
 @pytest.fixture
@@ -46,6 +48,12 @@ def notes_table(aws):
         AttributeDefinitions=[{"AttributeName": "note_id", "AttributeType": "S"}],
         BillingMode="PAY_PER_REQUEST",
     )
+
+
+@pytest.fixture
+def notes_bucket(aws):
+    """Notes bucket for OKF objects (D-014); name is in offline_env."""
+    return boto3.resource("s3").create_bucket(Bucket=NOTES_BUCKET)
 
 
 @dataclass

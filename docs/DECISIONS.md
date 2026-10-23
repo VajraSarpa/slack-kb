@@ -46,3 +46,17 @@
         status (D-009). capture.py still makes no Slack Web API calls.
         views.open needs a bot token (xoxb-): a new required Settings
         field, wired to Secrets Manager in Slice 8.
+- D-014 OKF note in S3 (Slice 4). S3 holds a note's content; DynamoDB
+        holds its mutable state. Object key notes/<team_id>/<note_id>.md:
+        YAML frontmatter between "---" lines, then the note text as the
+        body. Frontmatter carries only fields that never change: note_id,
+        team_id, channel_id, user_id, created_at. Severity and status stay
+        in DynamoDB only, so the modal (D-013) and status moves (D-009)
+        never touch S3 and nothing drifts. Readers that need severity join
+        on note_id. Frontmatter is written with yaml.safe_dump and read
+        with yaml.safe_load (pyyaml is a direct dependency); note text is
+        never put in frontmatter, and a body containing "---" or YAML-like
+        lines must round-trip unchanged. The worker writes S3 first, then
+        moves CAPTURED -> ROUTED; the put is an idempotent overwrite, and
+        an S3 failure raises so SQS retries and the DLQ applies. All S3
+        access goes through blob.py; the bucket name is a Settings field.

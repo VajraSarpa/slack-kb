@@ -916,6 +916,7 @@ dependencies = [
     { name = "boto3" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "pyyaml" },
     { name = "slack-bolt" },
 ]
 
@@ -932,6 +933,7 @@ requires-dist = [
     { name = "boto3", specifier = ">=1.43.112" },
     { name = "pydantic", specifier = ">=2.14.1" },
     { name = "pydantic-settings", specifier = ">=2.15.0" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "slack-bolt", specifier = ">=1.30.0" },
 ]
 
