@@ -36,3 +36,13 @@
         ARN (cicd-spec.md:164) mixes the two forms and is not reused.
         Exact <id> is unverified: look it up with the slackkb-dev SSO
         profile before Slice 8.
+- D-013 Severity modal (Slice 3) opens from a "Set severity" button in the
+        /bnote ack, not from capture. The button's block_actions payload
+        carries a fresh trigger_id; modal.py verifies the signature, calls
+        views.open through slack_api.py, then handles view_submission.
+        note_id travels in the view's private_metadata. A severity outside
+        the OKF enum returns response_action "errors" and changes nothing.
+        Severity is a plain update on an existing note; it does not touch
+        status (D-009). capture.py still makes no Slack Web API calls.
+        views.open needs a bot token (xoxb-): a new required Settings
+        field, wired to Secrets Manager in Slice 8.
