@@ -4,12 +4,20 @@ from pydantic import SecretStr, ValidationError
 
 from slackkb.config import Settings
 
+CAPTURE_QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/123456789012/slackkb-capture-test"
+
+
+@pytest.fixture(autouse=True)
+def capture_queue_env(monkeypatch):
+    monkeypatch.setenv("SLACKKB_CAPTURE_QUEUE_URL", CAPTURE_QUEUE_URL)
+
 
 def test_reads_prefixed_env():
     s = Settings()
     assert s.notes_table == NOTES_TABLE
     assert isinstance(s.signing_secret, SecretStr)
     assert s.signing_secret.get_secret_value() == SIGNING_SECRET
+    assert s.capture_queue_url == CAPTURE_QUEUE_URL
 
 
 def test_missing_signing_secret_fails(monkeypatch):
@@ -20,6 +28,12 @@ def test_missing_signing_secret_fails(monkeypatch):
 
 def test_missing_notes_table_fails(monkeypatch):
     monkeypatch.delenv("SLACKKB_NOTES_TABLE")
+    with pytest.raises(ValidationError):
+        Settings()
+
+
+def test_missing_capture_queue_url_fails(monkeypatch):
+    monkeypatch.delenv("SLACKKB_CAPTURE_QUEUE_URL")
     with pytest.raises(ValidationError):
         Settings()
 
