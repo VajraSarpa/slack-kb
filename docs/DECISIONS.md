@@ -13,3 +13,11 @@
         goes FAILED after the DLQ, the user who ran /bnote gets an ephemeral
         message via response_url (30-min window; no bot token). The capture
         handler still never calls response_url; only the 2b path does.
+- D-011 Events API retries (Slice 7) are deduplicated, not dropped. Key is
+        Slack's event_id (same on every retry). Verify the signature first,
+        then claim the key with a conditional put, then enqueue to SQS.
+        Key already claimed -> 200, no work. Enqueue fails -> delete the
+        claim and return 500, so Slack's retry is a real recovery (A0 #2).
+        Keys live in their own DynamoDB table with a 1-hour TTL, not the
+        notes table: they aren't notes, and Slack's retries end within
+        minutes. The table is Vajra's to add in infra/ (Slice 8).

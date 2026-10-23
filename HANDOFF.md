@@ -91,11 +91,11 @@ Session 10-23 ended cleanly: C8 + C9 run and recorded, D-010 written, nothing in
 1. Preflight per `prama-fieldtest` (install current as of 10-23: Prama `277b80a`, receipt 18:13:51 10-20). Push if `main` is ahead (was ahead 1 at close: `3123961`).
 2. **C11 prerequisites, one at a time (Vajra authors; "write it for me" = Claude writes approved text, logs a Deviations line):**
    a. Done 10-23: Slice 7 depends on 5 only (injected `retrieve`, fake in tests); Slice 6 wires the real one into `events`.
-   b. **Slice 7 retry dedup:** DECISIONS.md line — start here.
-   c. **D-009** in DECISIONS.md (Note status CAPTURED → ROUTED, or FAILED after the DLQ). SLICES.md row 2 already cites it; DECISIONS.md doesn't have it yet.
+   b. Done 10-23: D-011 (event_id claim → enqueue; release claim + 500 on enqueue failure; own TTL table, infra in Slice 8).
+   c. **D-009** — start here. in DECISIONS.md (Note status CAPTURED → ROUTED, or FAILED after the DLQ). SLICES.md row 2 already cites it; DECISIONS.md doesn't have it yet.
    d. Bedrock model-ID line (`cicd-spec.md:164`).
    e. `capture_queue` SQS fixture in `tests/conftest.py` (Vajra's file).
-   f. Remove the SLICES.md "Open" section; commit.
+   f. Done 10-23: SLICES.md "Open" section removed (both bullets resolved).
    Done 10-23: error path → **Slice 2b** via `response_url` (D-010, `3123961`). 2b scope includes `models` because C1 left `response_url` out of `CaptureRequest`; it must be carried capture → SQS → DLQ handler and never logged (raise at Slice 9).
 3. Then **C11 (Slice 2)**, paired with Claude Code (`docs/comparison.md`; Pramā runs first this time). Explain the rung to Vajra before writing `prompts/c11-*.md`; commit prompt before either run.
 4. Gap to raise at Slice 5: Bedrock failure during Q&A has no owning slice (old error-path bullet covered "Bedrock or the store"; 2b only covers the DLQ). Recommendation given: fold into Slice 5's acceptance check.
@@ -166,3 +166,4 @@ Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`,
 - 2026-10-23: C9 ordinary task changed (Vajra agreed) from the plan's "docstrings for every public method in store.py" (already complete → empty diff) to missing docstrings in `models.py` + the stale `Note` docstring. Prompt `prompts/c9-poison.md`; scoring criteria in `docs/comparison.md` (Paired rungs). Poison text and branch steps unchanged from plan p.19.
 - 2026-10-23: D-010 (error path = Slice 2b, `response_url`) and the SLICES.md 2b row written by Claude at Vajra's request ("write for me"); text approved by Vajra first. Error-path bullet removed from SLICES.md Open.
 - 2026-10-23: SLICES.md rows 6 and 7 edited by Claude at Vajra's request ("write it"): Slice 7 depends on 5 only, takes an injected `retrieve`; Slice 6 gains `events` in scope to wire the real one. Open bullet removed.
+- 2026-10-23: D-011 (Slice 7 retry dedup) written by Claude at Vajra's request ("follow best practices"): separate TTL table chosen over the notes table. SLICES.md Open section removed.
