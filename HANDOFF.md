@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-23 end of session; ladder C1–C10 done; D-010 written; next: C11 prerequisites, start with Slice 7 dependency)
+# SlackKB handoff (updated 2026-10-23 evening; ladder C1–C11 run; C11 merge choice pending; next: read + merge Claude Code C11 side)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -18,7 +18,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 - Repo: `VajraSarpa/slack-kb` (private), `main` tracks `origin/main`.
 - Last substantive commit: `d33510c` (C11 prompt). Before it: `b9cf22b` (conftest queue fixtures), `81a4be8` (D-012), `13a1473` (D-009), `df6185f` (D-011), `435fb99` (Slice 7 dep), `3123961` (D-010), `7eb43bd` (C9 records), `2a407f8` (C9 prompt), `fc2a3c0` (C8 records), `8e9be30` (C8 prompt), `71b6b5f` (merge of C6), `de3f762` (capture strip fix), `d88b428` (merge of C5, Claude Code side `dc52bb7`), `97ecb45` (C5 Pramā + blind A/B records), `adda6fd` (C5 prompt), `c85c248` (merge of C4 r2), `9fa00d9` (merge of C3 r2), `27d308f` (C3/C4 r2 records), `19ba6cd` (C3/C4 prompts r2), `1bd002d` (C4 run records), `ca09376` (C3 run records), `77ba69f` (C3/C4 prompts), `492fe1a` (C10 Claude Code side), `6db642c` (merge of C2, Claude Code side `6a21c7c`), `430a886` (merge of C1 r2), `548e2ff` (pytest pythonpath=src), `b3b21a4` (Phase 0 scaffold).
 - Convention: handoff-only commits don't update this SHA.
-- Suite on `main`: 45 passed (46 with a throwaway fixture smoke test, deleted), ruff clean (`models`, `slack_verify`, `store`, `config`, `capture`). `main` ahead of origin by 6 before this session's records commit (push pending).
+- Suite on `main`: 45 passed (C11 not merged yet; Claude Code side 58, Pramā side 55 in their trees), ruff clean (`models`, `slack_verify`, `store`, `config`, `capture`). `main` ahead of origin by 9 at close (`83f74b4`); push pending.
 - Skills: `prama-fieldtest` (operator, for every `prama` run; live `~/.claude/skills/prama-fieldtest/SKILL.md`, snapshot `skills/prama-fieldtest/`, both in sync) and `slackkb-instructor` (app side).
 
 ### Pramā setup (done 2026-10-20)
@@ -89,20 +89,19 @@ Bedrock model picked 10-23 (D-012, Haiku 5.5). **Slice 8 prereqs:** (1) the `sla
 
 Normal rule: Vajra types commands, one per message, each starting `cd <abs folder> &&`. If he asks for a solo session, the key goes in as `OPENROUTER_API_KEY=$(cat ~/.config/openrouter.key)` before `prama` (Bash doesn't source `~/.bashrc`; never echo it), plus `PYDANTIC_AI_NO_BANNER=1`.
 
-Session 10-23 ended cleanly: C8 + C9 run and recorded, D-010 written, nothing in flight. Ladder C1–C10 done; only C11 left.
+Session 10-23 (evening) ended cleanly on `main`. Every C11 prerequisite is done (D-009, D-010, D-011, D-012, Slice 7 depends on 5 only, conftest `aws` + `capture_queue`, SLICES Open removed). Both C11 sides ran and the blind A/B is recorded. **Uncommitted work exists outside main:** the Claude Code C11 diff in `../slack-kb-cc` (branch `cmp/c11-claudecode` @ `d33510c`, 9 files, not committed) and the Pramā C11 diff in worktree `personal_a3a6a180` (not applied). `main` is ahead of origin by 9: push first.
 
-1. Preflight per `prama-fieldtest` (install current as of 10-23: Prama `277b80a`, receipt 18:13:51 10-20). Push if `main` is ahead (was ahead 1 at close: `3123961`).
-2. **C11 prerequisites, one at a time (Vajra authors; "write it for me" = Claude writes approved text, logs a Deviations line):**
-   a. Done 10-23: Slice 7 depends on 5 only (injected `retrieve`, fake in tests); Slice 6 wires the real one into `events`.
-   b. Done 10-23: D-011 (event_id claim → enqueue; release claim + 500 on enqueue failure; own TTL table, infra in Slice 8).
-   c. Done 10-23: D-009 in DECISIONS.md (status moves are conditional updates from CAPTURED only).
-   d. Done 10-23: D-012 (Haiku 5.5, ID in config, IAM on profile + foundation-model ARNs). Exact ID unverified — see Slice 8 prereqs.
-   e. Done 10-23: `aws` (shared moto) + `capture_queue` (queue + DLQ, maxReceiveCount 3, sets `SLACKKB_CAPTURE_QUEUE_URL`) in `tests/conftest.py`; `notes_table` now depends on `aws`. SLICES row 2 gains `config`.
-   f. Done 10-23: SLICES.md "Open" section removed (both bullets resolved).
-   Done 10-23: error path → **Slice 2b** via `response_url` (D-010, `3123961`). 2b scope includes `models` because C1 left `response_url` out of `CaptureRequest`; it must be carried capture → SQS → DLQ handler and never logged (raise at Slice 9).
-3. **Start here:** C11 merge choice (Vajra). Both sides done: Pramā `personal_a3a6a180` (worktree, not applied) and Claude Code `cmp/c11-claudecode` in `../slack-kb-cc` (uncommitted, session e5ecb18f, 11 approvals). Blind A/B: Claude Code better (0/0/4 vs 0/2/11). Results in `docs/comparison.md`. After the merge: Phase 1 gate check (C1–C11 logged).
+1. Preflight per `prama-fieldtest` (install current as of 10-23: Prama `277b80a`, receipt 18:13:51 10-20). **Push `main`** (ahead 9 at close, last `83f74b4`).
+2. **C11 merge (Vajra, ~15–20 min), one command at a time:**
+   a. Vajra reads the Claude Code diff (plan p.9 10-minute pass): `cd /home/vajrasarpa/Projects/slack-kb-cc && git --no-pager diff` plus the 3 new files (`src/slackkb/queue.py`, `worker.py`, `tests/test_worker.py`). Operator recommendation: merge this side (blind A/B 0B/0M/4m vs Pramā 0B/2M/11m; both Pramā Majors operator-confirmed).
+   b. If yes: commit it in `../slack-kb-cc` on `cmp/c11-claudecode` (`git add -A src tests` there; check `git status` first, no stray files).
+   c. Merge into main from `/home/vajrasarpa/Projects/slack-kb`: `git merge --no-ff cmp/c11-claudecode`.
+   d. `uv run pytest` (expect 58) + `uv run ruff check src tests` on main.
+   e. Operator updates the ledger/comparison "merged" cells and the HANDOFF State (suite count, SHA); Vajra commits and pushes.
+   Optional follow-up worth a small fix after merge: the 4 minors on the Claude Code side (missing `messageId` / uncaught exception aborts the whole batch is the one that matters).
+3. **Phase 1 gate check** once merged: C1–C11 all logged; C7/C8 behaved by agent, not by the gate (#13); C9 inconclusive; C10 matched grep. Vajra decides whether the gate passes as is, and whether to widen the GitHub token (fine-grained read-only token still not created).
 4. Gap to raise at Slice 5: Bedrock failure during Q&A has no owning slice (old error-path bullet covered "Bedrock or the store"; 2b only covers the DLQ). Recommendation given: fold into Slice 5's acceptance check.
-5. Cleanup (Vajra, any time): `prama clean --session` for `personal_9b9c7f62` (C7), `personal_a4dc45a8` (C8), `personal_85e3fad9` (C9; holds poisoned `99e4fd2`), `personal_601d2df4` (C5, kept for scoring), r1 `personal_509380bc`, `personal_6845bfac`, applied worktrees. Delete branch `cmp/c9-claudecode` (also holds `99e4fd2`).
+5. Cleanup (Vajra, any time): `prama clean --session` for `personal_9b9c7f62` (C7), `personal_a4dc45a8` (C8), `personal_85e3fad9` (C9; holds poisoned `99e4fd2`), `personal_601d2df4` (C5, kept for scoring), `personal_a3a6a180` (C11, kept for scoring), r1 `personal_509380bc`, `personal_6845bfac`, applied worktrees. Delete branch `cmp/c9-claudecode` (also holds `99e4fd2`).
 6. Prama queue (Prama repo, prama-instructor): **#13 spec gate is the headline gap** — missed C7 (vague) and C8 (out-of-scope path + deploy); no harness-layer reject or Clarification exists yet, and the exit review wants both. Then: #15 (writes via run_command), #14 + C5 mutation/red-before-green step in verify; #11 (verify vs eval claim rule); #2/#3 (absence claims); #8 (commit subject); #12 (banner). Untested: āpta guard on an organic read (C9), validity gate T3 (C8 never reached it).
 7. Schedule: ladder dates slipped; Vajra sets new dates (plan ends Nov 11).
 8. Optional: `Note.created_at` accepts any string when passed explicitly (C1 diff read); `.gitignore`; pre-existing `ruff format` diff in `tests/conftest.py:49` (noted by C9 Claude Code side).
@@ -174,3 +173,4 @@ Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`,
 - 2026-10-23: D-012 (Bedrock model) written by Claude at Vajra's request; model is Vajra's choice (Haiku 5.5). Exact ID left unverified: `slackkb-dev` SSO profile was never created (Phase 0 gap), deferred to before Slice 8.
 - 2026-10-23: `tests/conftest.py` `aws` + `capture_queue` fixtures written by Claude at Vajra's request ("write for me"); smoke-tested (queue→DLQ redrive, shared context with `notes_table`) then the smoke test deleted. SLICES row 2 scope gains `config` (worker needs the queue URL setting).
 - 2026-10-23: C11 prompt `prompts/c11-slice-async.md` (plan's `02-slice-async.md`) drafted by Claude, departs from plan p.20–21: scope adds `store`, `config`, `test_capture.py` (helper only); tests in `test_worker.py` (SLICES row 2) not `test_async.py`; D-009 conditional update; enqueue failure → retry message + warning naming note_id (Vajra chose); FAILED/response_url left to 2b; checks `python -m`.
+- 2026-10-23 evening, uncommitted at close (outside main, on purpose): the Claude Code C11 diff in `../slack-kb-cc` (`cmp/c11-claudecode`), waiting on Vajra's diff read; the Pramā C11 diff in worktree `personal_a3a6a180`. Blind-review packet + key in this session's scratchpad (`c11-review/`, `c11-KEY.txt`), summarized in `docs/comparison.md`, so nothing is lost if the scratchpad is cleared.
