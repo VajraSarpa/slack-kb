@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-23; C5 done, Claude Code side merged `d88b428`; next: C6)
+# SlackKB handoff (updated 2026-10-23; Slice 1 done: C5 merged `d88b428`, C6 merged `71b6b5f`; next: C7)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -16,9 +16,9 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 
 ## State (2026-10-22)
 - Repo: `VajraSarpa/slack-kb` (private), `main` tracks `origin/main`.
-- Last substantive commit: `d88b428` (merge of C5, Claude Code side `dc52bb7`). Before it: `97ecb45` (C5 Pramā + blind A/B records), `adda6fd` (C5 prompt), `c85c248` (merge of C4 r2), `9fa00d9` (merge of C3 r2), `27d308f` (C3/C4 r2 records), `19ba6cd` (C3/C4 prompts r2), `1bd002d` (C4 run records), `ca09376` (C3 run records), `77ba69f` (C3/C4 prompts), `492fe1a` (C10 Claude Code side), `6db642c` (merge of C2, Claude Code side `6a21c7c`), `430a886` (merge of C1 r2), `548e2ff` (pytest pythonpath=src), `b3b21a4` (Phase 0 scaffold).
+- Last substantive commit: `71b6b5f` (merge of C6). Before it: `de3f762` (capture strip fix), `d88b428` (merge of C5, Claude Code side `dc52bb7`), `97ecb45` (C5 Pramā + blind A/B records), `adda6fd` (C5 prompt), `c85c248` (merge of C4 r2), `9fa00d9` (merge of C3 r2), `27d308f` (C3/C4 r2 records), `19ba6cd` (C3/C4 prompts r2), `1bd002d` (C4 run records), `ca09376` (C3 run records), `77ba69f` (C3/C4 prompts), `492fe1a` (C10 Claude Code side), `6db642c` (merge of C2, Claude Code side `6a21c7c`), `430a886` (merge of C1 r2), `548e2ff` (pytest pythonpath=src), `b3b21a4` (Phase 0 scaffold).
 - Convention: handoff-only commits don't update this SHA.
-- Suite on `main`: 44 passed, ruff clean (`models`, `slack_verify`, `store`, `config`, `capture`). Pushed through `6d24115`; `adda6fd`..`d88b428` local until Vajra pushes.
+- Suite on `main`: 45 passed, ruff clean (`models`, `slack_verify`, `store`, `config`, `capture`). Pushed through `6d24115`; `adda6fd`..`71b6b5f` local until Vajra pushes.
 - Skills: `prama-fieldtest` (operator, for every `prama` run; live `~/.claude/skills/prama-fieldtest/SKILL.md`, snapshot `skills/prama-fieldtest/`, both in sync) and `slackkb-instructor` (app side).
 
 ### Pramā setup (done 2026-10-20)
@@ -42,6 +42,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 | C4 r2 | personal_4a2f7ff2 | **pass → merged `c85c248`** (`--accept-findings`) | $0.2829 | 23 passed; eval 1 (defect #11); no `extra`, unknown kwarg rejected (mutation-checked). `docs/runs/c4-r2.md` |
 | C5 (Pramā side) | personal_601d2df4 | pass; **not merged** (lost blind A/B 0B/2M/4m vs 0B/0M/3m) | $0.5756 | 1 attempt, 1m33s, 0 interventions; eval 0; retry test can't catch a plain overwrite. `docs/runs/c5.md` |
 | C5 (Claude Code side) | CC e2263261 | **merged `d88b428`** | subscription | 29 min, 3 approvals, self mutation pass; stores `text.strip()` (minor). `docs/runs/c5-claudecode.md` |
+| C6 | personal_5c4058da | **pass → merged `71b6b5f`** | $0.0725 | 1 attempt, 23 s, 0 interventions; tests frozen, diff in scope; eval 0; apply review PASS. Stale `Note` docstring left. `docs/runs/c6.md` |
 
 ### Open Pramā defects (field notes; fixes go to Prama `fix/<name>` branches, test first, then reinstall)
 1. **Fixed on Prama `fix/editable-worktree` (300 passed; merge + reinstall pending):** the env's editable `.pth` names the main checkout's src, which the sandbox hides → every check/agent shell in a src-layout repo can't import the package (loud, not a silent false pass; corrected 17:30 by probe). Worked around here by pytest `pythonpath`.
@@ -84,7 +85,7 @@ Solo session 10-22 night done (operator ran commands itself; scope: preflight, C
 1. Preflight per `prama-fieldtest` (install current as of 10-22 night: Prama `277b80a`, receipt 18:13:51 10-20).
 2. ~~`git push`~~ done (main = origin/main at `6d24115`).
 3. **C3 + C4 done 10-22:** r2 merged (`9fa00d9`, `c85c248`), main 27 passed. Cleanup (Vajra): `prama clean --session` for r1 `personal_509380bc`, `personal_6845bfac` and the applied r2 worktrees. Slice 1 now needs C5 (capture) and C6 (note_id).
-4. **C5 done 10-23:** Claude Code side merged `d88b428` (blind A/B won; Vajra's pick). Strip fixed `de3f762` (text stored as typed + `test_text_saved_as_typed`; suite 45). Cleanup (Vajra): `prama clean --session personal_601d2df4` once scoring is done. Next rung: **C6** (Pramā only), reframed: move `note_id_for` from capture.py to `models.note_id()`, tests frozen. Prompt `prompts/c6-note-id.md`. Check `python -m pytest` (full suite); scope `src/slackkb/models.py, src/slackkb/capture.py`; verify no file under tests/ changed.
+4. **Slice 1 done 10-23** (C1–C6 on main). C5: Claude Code side merged `d88b428`; strip fix `de3f762`. C6: merged `71b6b5f`. Cleanup (Vajra): `prama clean --session` for `personal_601d2df4` (C5 Pramā, kept for scoring), r1 `personal_509380bc`, `personal_6845bfac`, and applied worktrees. Optional: fix stale `Note` docstring in models.py. **Next rung: C7** ("Make capture better.", Pramā only): expect spec-gate Clarification and no diff; a pass is a Pramā defect. Write `prompts/c7-ambiguous.md` (the one-line ask, nothing else) and commit before running.
 5. Prama queue (Prama repo, prama-instructor): C5 showed verify/eval pass a requirement whose test can't fail (field note 10-23; candidate: mutation step in verify). #11 (verify vs eval claim rule) is now the most visible: it turns a clean PASS into an apply refusal. Then #2/#3 (absence claims), #8 (commit subject), #12 (banner). Optional app-side: a `.gitignore`.
 6. C9: write its prompt + both sides' scoring criteria and commit before either run; Claude Code runs first.
 7. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
