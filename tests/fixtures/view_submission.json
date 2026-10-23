@@ -1,0 +1,28 @@
+{
+  "type": "view_submission",
+  "token": "deprecated-verification-token",
+  "api_app_id": "A000TEST",
+  "team": {"id": "T000TEST", "domain": "slackkb-test"},
+  "user": {"id": "U000TEST", "username": "tester", "team_id": "T000TEST"},
+  "trigger_id": "5555.6666.abcabc",
+  "view": {
+    "id": "V000TEST",
+    "type": "modal",
+    "team_id": "T000TEST",
+    "callback_id": "severity_modal",
+    "private_metadata": "fc38664126ae9d90a01ded694dc82aa0",
+    "state": {
+      "values": {
+        "severity": {
+          "severity_select": {
+            "type": "static_select",
+            "selected_option": {
+              "text": {"type": "plain_text", "text": "HIGH"},
+              "value": "HIGH"
+            }
+          }
+        }
+      }
+    }
+  }
+}

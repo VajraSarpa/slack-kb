@@ -99,3 +99,34 @@ def slack_request():
         return {"headers": headers, "body": body, "isBase64Encoded": False}
 
     return make
+
+
+@pytest.fixture
+def slack_interaction():
+    """Build a signed interactivity event (block_actions or view_submission).
+
+    Slack posts these form-encoded as payload=<json>. `severity` and
+    `note_id` override the fixture's view state / button value.
+    """
+
+    def make(kind, *, severity=None, note_id=None, ts=None,
+             secret=SIGNING_SECRET):
+        payload = json.loads((FIXTURES / f"{kind}.json").read_text())
+        if kind == "block_actions" and note_id is not None:
+            payload["actions"][0]["value"] = note_id
+        if kind == "view_submission":
+            if note_id is not None:
+                payload["view"]["private_metadata"] = note_id
+            if severity is not None:
+                select = payload["view"]["state"]["values"]["severity"]
+                select["severity_select"]["selected_option"]["value"] = severity
+        body = urllib.parse.urlencode({"payload": json.dumps(payload)})
+        ts = int(time.time()) if ts is None else ts
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-Slack-Request-Timestamp": str(ts),
+            "X-Slack-Signature": sign(body, ts, secret),
+        }
+        return {"headers": headers, "body": body, "isBase64Encoded": False}
+
+    return make

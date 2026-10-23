@@ -1,0 +1,21 @@
+{
+  "type": "block_actions",
+  "token": "deprecated-verification-token",
+  "api_app_id": "A000TEST",
+  "team": {"id": "T000TEST", "domain": "slackkb-test"},
+  "user": {"id": "U000TEST", "username": "tester", "team_id": "T000TEST"},
+  "channel": {"id": "C000TEST", "name": "incidents"},
+  "container": {"type": "message", "channel_id": "C000TEST", "is_ephemeral": true},
+  "trigger_id": "3333.4444.fedcba",
+  "response_url": "https://hooks.slack.invalid/actions/T000TEST/2/def",
+  "actions": [
+    {
+      "type": "button",
+      "block_id": "note_actions",
+      "action_id": "set_severity",
+      "text": {"type": "plain_text", "text": "Set severity"},
+      "value": "fc38664126ae9d90a01ded694dc82aa0",
+      "action_ts": "1760000000.000100"
+    }
+  ]
+}
