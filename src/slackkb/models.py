@@ -1,5 +1,6 @@
 """Pydantic models for every boundary (Slice 1, rung C1)."""
 
+import hashlib
 from datetime import UTC, datetime
 from enum import Enum
 
@@ -19,6 +20,11 @@ class NoteStatus(str, Enum):  # noqa: UP042
 
 def _utc_now_iso() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def note_id(team_id: str, trigger_id: str) -> str:
+    """D-006: sha256 of team_id:trigger_id, first 32 hex chars."""
+    return hashlib.sha256(f"{team_id}:{trigger_id}".encode()).hexdigest()[:32]
 
 
 class Note(BaseModel):
