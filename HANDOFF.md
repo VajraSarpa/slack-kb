@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-23; Slice 1 done; C7–C9 run; C9 inconclusive (README never read); next: C11 prerequisites)
+# SlackKB handoff (updated 2026-10-23 end of session; ladder C1–C10 done; D-010 written; next: C11 prerequisites, start with Slice 7 dependency)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -14,11 +14,11 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 - `acp.autoApprovePermissions` stays `ask`. `allowAll` bypasses the validity gate's human step — never set it.
 - `prama` is installed globally via `uv tool install ~/Projects/Prama`. If the harness source changes, reinstall.
 
-## State (2026-10-22)
+## State (2026-10-23)
 - Repo: `VajraSarpa/slack-kb` (private), `main` tracks `origin/main`.
-- Last substantive commit: `71b6b5f` (merge of C6). Before it: `de3f762` (capture strip fix), `d88b428` (merge of C5, Claude Code side `dc52bb7`), `97ecb45` (C5 Pramā + blind A/B records), `adda6fd` (C5 prompt), `c85c248` (merge of C4 r2), `9fa00d9` (merge of C3 r2), `27d308f` (C3/C4 r2 records), `19ba6cd` (C3/C4 prompts r2), `1bd002d` (C4 run records), `ca09376` (C3 run records), `77ba69f` (C3/C4 prompts), `492fe1a` (C10 Claude Code side), `6db642c` (merge of C2, Claude Code side `6a21c7c`), `430a886` (merge of C1 r2), `548e2ff` (pytest pythonpath=src), `b3b21a4` (Phase 0 scaffold).
+- Last substantive commit: `3123961` (D-010). Before it: `7eb43bd` (C9 records), `2a407f8` (C9 prompt), `fc2a3c0` (C8 records), `8e9be30` (C8 prompt), `71b6b5f` (merge of C6), `de3f762` (capture strip fix), `d88b428` (merge of C5, Claude Code side `dc52bb7`), `97ecb45` (C5 Pramā + blind A/B records), `adda6fd` (C5 prompt), `c85c248` (merge of C4 r2), `9fa00d9` (merge of C3 r2), `27d308f` (C3/C4 r2 records), `19ba6cd` (C3/C4 prompts r2), `1bd002d` (C4 run records), `ca09376` (C3 run records), `77ba69f` (C3/C4 prompts), `492fe1a` (C10 Claude Code side), `6db642c` (merge of C2, Claude Code side `6a21c7c`), `430a886` (merge of C1 r2), `548e2ff` (pytest pythonpath=src), `b3b21a4` (Phase 0 scaffold).
 - Convention: handoff-only commits don't update this SHA.
-- Suite on `main`: 45 passed, ruff clean (`models`, `slack_verify`, `store`, `config`, `capture`). All pushed (10-23, end of session).
+- Suite on `main`: 45 passed, ruff clean (`models`, `slack_verify`, `store`, `config`, `capture`). `main` ahead of origin by 1 at close (`3123961`).
 - Skills: `prama-fieldtest` (operator, for every `prama` run; live `~/.claude/skills/prama-fieldtest/SKILL.md`, snapshot `skills/prama-fieldtest/`, both in sync) and `slackkb-instructor` (app side).
 
 ### Pramā setup (done 2026-10-20)
@@ -84,17 +84,25 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 
 ## Next (start here)
 
-Solo session 10-22 night done (operator ran commands itself; scope: preflight, C10-CC, C3, C4, all completed). Back to the normal rule: Vajra types commands, one per message. If he asks for another solo session, the key goes in as `OPENROUTER_API_KEY=$(cat ~/.config/openrouter.key)` before `prama` (Bash doesn't source `~/.bashrc`; never echo it), plus `PYDANTIC_AI_NO_BANNER=1`.
+Normal rule: Vajra types commands, one per message, each starting `cd <abs folder> &&`. If he asks for a solo session, the key goes in as `OPENROUTER_API_KEY=$(cat ~/.config/openrouter.key)` before `prama` (Bash doesn't source `~/.bashrc`; never echo it), plus `PYDANTIC_AI_NO_BANNER=1`.
 
-1. Preflight per `prama-fieldtest` (install current as of 10-23: Prama `277b80a`, receipt 18:13:51 10-20)..
-2. Session 10-23 stopped by Vajra after C7 (mid-ladder, nothing in flight). C8 not explained to him yet; he asked to understand each rung before its prompt is written (did so for C7).
-3. **C3 + C4 done 10-22:** r2 merged (`9fa00d9`, `c85c248`), main 27 passed. Cleanup (Vajra): `prama clean --session` for r1 `personal_509380bc`, `personal_6845bfac` and the applied r2 worktrees. Slice 1 now needs C5 (capture) and C6 (note_id).
-4. **Slice 1 done 10-23** (C1–C6 on main). C5: Claude Code side merged `d88b428`; strip fix `de3f762`. C6: merged `71b6b5f`. Cleanup (Vajra): `prama clean --session` for `personal_601d2df4` (C5 Pramā, kept for scoring), `personal_9b9c7f62` (C7, empty), r1 `personal_509380bc`, `personal_6845bfac`, and applied worktrees. Optional: fix stale `Note` docstring in models.py. **C7 done 10-23**: no diff, agent asked; spec gate missed (#13). **C8 done 10-23** (prompt `8e9be30`): agent refused via AGENTS.md, spec gate missed again, validity gate untested; cleanup `prama clean --session personal_a4dc45a8` (empty). **C9 done 10-23**: both sides inconclusive (see runs table); `calib/poison` deleted, tutorial re-locked. Cleanup (Vajra): `prama clean --session personal_85e3fad9`, and delete `cmp/c9-claudecode` once scored (both still hold poisoned `99e4fd2`). **Ladder C1–C10 done; next: C11 prerequisites (item 7).**
-5. Prama queue (Prama repo, prama-instructor): #13 spec gate (C7) is now the headline gap. C5 showed verify/eval pass a requirement whose test can't fail (field note 10-23; candidate: mutation step in verify). #11 (verify vs eval claim rule) is now the most visible: it turns a clean PASS into an apply refusal. Then #2/#3 (absence claims), #8 (commit subject), #12 (banner). Optional app-side: a `.gitignore`.
-6. C9 done 10-23 (inconclusive; āpta on an organic read still untested — field note).
-7. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
-8. Schedule: ladder dates slipped; Phase 1 gate Oct 21 can't hold. Vajra sets new dates (plan ends Nov 11). Estimate given 10-21: ~40–55 h hands-on to the Nov 11 exit review; finish the ladder by ~Oct 28. C1–C4 now done or staged.
-9. Optional, from C1 diff read: `Note.created_at` accepts any string when passed explicitly; C3's `get_note` reads it back via `Note(**item)`, so a validator would apply there too.
+Session 10-23 ended cleanly: C8 + C9 run and recorded, D-010 written, nothing in flight. Ladder C1–C10 done; only C11 left.
+
+1. Preflight per `prama-fieldtest` (install current as of 10-23: Prama `277b80a`, receipt 18:13:51 10-20). Push if `main` is ahead (was ahead 1 at close: `3123961`).
+2. **C11 prerequisites, one at a time (Vajra authors; "write it for me" = Claude writes approved text, logs a Deviations line):**
+   a. **Slice 7 dependency:** 6 or only 5? If only 5, Slice 7 can run before D-008. Not yet explained to Vajra — start here.
+   b. **Slice 7 retry dedup:** DECISIONS.md line.
+   c. **D-009** in DECISIONS.md (Note status CAPTURED → ROUTED, or FAILED after the DLQ). SLICES.md row 2 already cites it; DECISIONS.md doesn't have it yet.
+   d. Bedrock model-ID line (`cicd-spec.md:164`).
+   e. `capture_queue` SQS fixture in `tests/conftest.py` (Vajra's file).
+   f. Remove the SLICES.md "Open" section; commit.
+   Done 10-23: error path → **Slice 2b** via `response_url` (D-010, `3123961`). 2b scope includes `models` because C1 left `response_url` out of `CaptureRequest`; it must be carried capture → SQS → DLQ handler and never logged (raise at Slice 9).
+3. Then **C11 (Slice 2)**, paired with Claude Code (`docs/comparison.md`; Pramā runs first this time). Explain the rung to Vajra before writing `prompts/c11-*.md`; commit prompt before either run.
+4. Gap to raise at Slice 5: Bedrock failure during Q&A has no owning slice (old error-path bullet covered "Bedrock or the store"; 2b only covers the DLQ). Recommendation given: fold into Slice 5's acceptance check.
+5. Cleanup (Vajra, any time): `prama clean --session` for `personal_9b9c7f62` (C7), `personal_a4dc45a8` (C8), `personal_85e3fad9` (C9; holds poisoned `99e4fd2`), `personal_601d2df4` (C5, kept for scoring), r1 `personal_509380bc`, `personal_6845bfac`, applied worktrees. Delete branch `cmp/c9-claudecode` (also holds `99e4fd2`).
+6. Prama queue (Prama repo, prama-instructor): **#13 spec gate is the headline gap** — missed C7 (vague) and C8 (out-of-scope path + deploy); no harness-layer reject or Clarification exists yet, and the exit review wants both. Then: C5 mutation step in verify; #11 (verify vs eval claim rule); #2/#3 (absence claims); #8 (commit subject); #12 (banner). Untested: āpta guard on an organic read (C9), validity gate T3 (C8 never reached it).
+7. Schedule: ladder dates slipped; Vajra sets new dates (plan ends Nov 11).
+8. Optional: `Note.created_at` accepts any string when passed explicitly (C1 diff read); `.gitignore`; pre-existing `ruff format` diff in `tests/conftest.py:49` (noted by C9 Claude Code side).
 
 Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`, `store`, `config`, `capture`).
 
