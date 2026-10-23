@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-23; C5 prompt committed, Claude Code side run; next: C5 Pramā side)
+# SlackKB handoff (updated 2026-10-23; C5 done, Claude Code side merged `d88b428`; next: C6)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -16,9 +16,9 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 
 ## State (2026-10-22)
 - Repo: `VajraSarpa/slack-kb` (private), `main` tracks `origin/main`.
-- Last substantive commit: `c85c248` (merge of C4 r2). Before it: `9fa00d9` (merge of C3 r2), `27d308f` (C3/C4 r2 records), `19ba6cd` (C3/C4 prompts r2), `1bd002d` (C4 run records), `ca09376` (C3 run records), `77ba69f` (C3/C4 prompts), `492fe1a` (C10 Claude Code side), `6db642c` (merge of C2, Claude Code side `6a21c7c`), `430a886` (merge of C1 r2), `548e2ff` (pytest pythonpath=src), `b3b21a4` (Phase 0 scaffold).
+- Last substantive commit: `d88b428` (merge of C5, Claude Code side `dc52bb7`). Before it: `97ecb45` (C5 Pramā + blind A/B records), `adda6fd` (C5 prompt), `c85c248` (merge of C4 r2), `9fa00d9` (merge of C3 r2), `27d308f` (C3/C4 r2 records), `19ba6cd` (C3/C4 prompts r2), `1bd002d` (C4 run records), `ca09376` (C3 run records), `77ba69f` (C3/C4 prompts), `492fe1a` (C10 Claude Code side), `6db642c` (merge of C2, Claude Code side `6a21c7c`), `430a886` (merge of C1 r2), `548e2ff` (pytest pythonpath=src), `b3b21a4` (Phase 0 scaffold).
 - Convention: handoff-only commits don't update this SHA.
-- Suite on `main`: 27 passed, ruff clean (`models`, `slack_verify`, `store`, `config`). Pushed through `6d24115` (origin/main = main, checked 10-22).
+- Suite on `main`: 44 passed, ruff clean (`models`, `slack_verify`, `store`, `config`, `capture`). Pushed through `6d24115`; `adda6fd`..`d88b428` local until Vajra pushes.
 - Skills: `prama-fieldtest` (operator, for every `prama` run; live `~/.claude/skills/prama-fieldtest/SKILL.md`, snapshot `skills/prama-fieldtest/`, both in sync) and `slackkb-instructor` (app side).
 
 ### Pramā setup (done 2026-10-20)
@@ -40,6 +40,8 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 | C4 | personal_6845bfac | pass; **discarded** (Vajra diff read) | $0.1624 | missing notes_table test; `extra="ignore"` bypass. `docs/runs/c4.md` |
 | C3 r2 | personal_877cd35a | **pass → merged `9fa00d9`** | $0.2468 | 21 passed; eval 0; propagate test added (mutation-checked). `docs/runs/c3-r2.md` |
 | C4 r2 | personal_4a2f7ff2 | **pass → merged `c85c248`** (`--accept-findings`) | $0.2829 | 23 passed; eval 1 (defect #11); no `extra`, unknown kwarg rejected (mutation-checked). `docs/runs/c4-r2.md` |
+| C5 (Pramā side) | personal_601d2df4 | pass; **not merged** (lost blind A/B 0B/2M/4m vs 0B/0M/3m) | $0.5756 | 1 attempt, 1m33s, 0 interventions; eval 0; retry test can't catch a plain overwrite. `docs/runs/c5.md` |
+| C5 (Claude Code side) | CC e2263261 | **merged `d88b428`** | subscription | 29 min, 3 approvals, self mutation pass; stores `text.strip()` (minor). `docs/runs/c5-claudecode.md` |
 
 ### Open Pramā defects (field notes; fixes go to Prama `fix/<name>` branches, test first, then reinstall)
 1. **Fixed on Prama `fix/editable-worktree` (300 passed; merge + reinstall pending):** the env's editable `.pth` names the main checkout's src, which the sandbox hides → every check/agent shell in a src-layout repo can't import the package (loud, not a silent false pass; corrected 17:30 by probe). Worked around here by pytest `pythonpath`.
@@ -82,8 +84,8 @@ Solo session 10-22 night done (operator ran commands itself; scope: preflight, C
 1. Preflight per `prama-fieldtest` (install current as of 10-22 night: Prama `277b80a`, receipt 18:13:51 10-20).
 2. ~~`git push`~~ done (main = origin/main at `6d24115`).
 3. **C3 + C4 done 10-22:** r2 merged (`9fa00d9`, `c85c248`), main 27 passed. Cleanup (Vajra): `prama clean --session` for r1 `personal_509380bc`, `personal_6845bfac` and the applied r2 worktrees. Slice 1 now needs C5 (capture) and C6 (note_id).
-4. C5 in progress. Prompt committed `adda6fd`. **Claude Code side done 10-23** (session e2263261, 29 min, 3 approvals, 44 passed; `docs/runs/c5-claudecode.md`); its two files are committed on `cmp/c5-claudecode` as `dc52bb7` (in `../slack-kb-cc`). Next: Pramā side from `adda6fd` on main: `prama task "$(cat prompts/01-slice-capture.md)" --check "python -m pytest tests/test_capture.py" --scope src/slackkb/capture.py --scope tests/test_capture.py`, tee `docs/runs/c5.md`, then `prama eval`, then blind A/B (fresh subagent, Vajra keeps key), then Vajra merges one. `prama apply` asks `[y/N]` after review.
-5. Prama queue (Prama repo, prama-instructor): #11 (verify vs eval claim rule) is now the most visible: it turns a clean PASS into an apply refusal. Then #2/#3 (absence claims), #8 (commit subject), #12 (banner). Optional app-side: a `.gitignore`.
+4. **C5 done 10-23:** Claude Code side merged `d88b428` (blind A/B won; Vajra's pick). Open: A stores `text.strip()` instead of the raw form text (`capture.py`, minor) — Vajra decides keep or fix. Cleanup (Vajra): `prama clean --session personal_601d2df4` once scoring is done. Next rung: **C6** (extract `note_id()`, pass with no test edits; Pramā only, not paired). Write `prompts/c6-note-id.md` and commit before running.
+5. Prama queue (Prama repo, prama-instructor): C5 showed verify/eval pass a requirement whose test can't fail (field note 10-23; candidate: mutation step in verify). #11 (verify vs eval claim rule) is now the most visible: it turns a clean PASS into an apply refusal. Then #2/#3 (absence claims), #8 (commit subject), #12 (banner). Optional app-side: a `.gitignore`.
 6. C9: write its prompt + both sides' scoring criteria and commit before either run; Claude Code runs first.
 7. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
 8. Schedule: ladder dates slipped; Phase 1 gate Oct 21 can't hold. Vajra sets new dates (plan ends Nov 11). Estimate given 10-21: ~40–55 h hands-on to the Nov 11 exit review; finish the ladder by ~Oct 28. C1–C4 now done or staged.
