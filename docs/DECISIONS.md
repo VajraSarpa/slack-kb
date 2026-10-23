@@ -9,6 +9,11 @@
         are not retried by Slack; the conditional put still blocks duplicates.
 - D-007 Signing secret from pydantic-settings; Secrets Manager wiring in Slice 8.
 - D-008 Retrieval store for Slice 6: undecided.
+- D-009 Note status: CAPTURED -> ROUTED, or FAILED after the DLQ.
+        capture writes CAPTURED. The worker sets ROUTED when it finishes
+        (Slice 2); the DLQ handler sets FAILED (Slice 2b). Each move is a
+        conditional update from CAPTURED only, so a repeat SQS delivery
+        can't move a note backward or out of FAILED.
 - D-010 The error path is its own slice (2b), not part of Slice 2: when a note
         goes FAILED after the DLQ, the user who ran /bnote gets an ephemeral
         message via response_url (30-min window; no bot token). The capture

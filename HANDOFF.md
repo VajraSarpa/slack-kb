@@ -92,8 +92,8 @@ Session 10-23 ended cleanly: C8 + C9 run and recorded, D-010 written, nothing in
 2. **C11 prerequisites, one at a time (Vajra authors; "write it for me" = Claude writes approved text, logs a Deviations line):**
    a. Done 10-23: Slice 7 depends on 5 only (injected `retrieve`, fake in tests); Slice 6 wires the real one into `events`.
    b. Done 10-23: D-011 (event_id claim → enqueue; release claim + 500 on enqueue failure; own TTL table, infra in Slice 8).
-   c. **D-009** — start here. in DECISIONS.md (Note status CAPTURED → ROUTED, or FAILED after the DLQ). SLICES.md row 2 already cites it; DECISIONS.md doesn't have it yet.
-   d. Bedrock model-ID line (`cicd-spec.md:164`).
+   c. Done 10-23: D-009 in DECISIONS.md (status moves are conditional updates from CAPTURED only).
+   d. **Bedrock model-ID line** (`cicd-spec.md:164`) — start here.
    e. `capture_queue` SQS fixture in `tests/conftest.py` (Vajra's file).
    f. Done 10-23: SLICES.md "Open" section removed (both bullets resolved).
    Done 10-23: error path → **Slice 2b** via `response_url` (D-010, `3123961`). 2b scope includes `models` because C1 left `response_url` out of `CaptureRequest`; it must be carried capture → SQS → DLQ handler and never logged (raise at Slice 9).
@@ -119,7 +119,7 @@ Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`,
 - Costs to fill from the OpenRouter dashboard: A0 (~04:54, ~04:57 on 10-15), C10 (~12:44 on 10-20).
 - Before C5: save `prompts/01-slice-capture.md` from the first-prompt file with three edits (plan p.19): drop `tests/conftest.py` and `tests/fixtures/slash_bnote.json` from SCOPE; requirement 2 → D-006 wording; add "handler returns the ack response; it never calls Slack's response_url".
 - C9 done 10-23: `calib/poison` deleted, `reference/tutorial` re-locked (a-w).
-- Before C11: add `capture_queue` SQS fixture to `tests/conftest.py` (Vajra); add D-009 (CAPTURED → ROUTED, or FAILED after the DLQ) to DECISIONS.md.
+- Before C11: add `capture_queue` SQS fixture to `tests/conftest.py` (Vajra). D-009 done 10-23.
 - Phase 1 gate: if C1–C11 logged and C7–C9 behaved / C10 matched grep, widen GitHub token to Contents + Pull-requests write. Fine-grained read-only token still not created (Vajra, github.com).
 
 ## Phase 1 ladder quick reference
@@ -167,3 +167,4 @@ Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`,
 - 2026-10-23: D-010 (error path = Slice 2b, `response_url`) and the SLICES.md 2b row written by Claude at Vajra's request ("write for me"); text approved by Vajra first. Error-path bullet removed from SLICES.md Open.
 - 2026-10-23: SLICES.md rows 6 and 7 edited by Claude at Vajra's request ("write it"): Slice 7 depends on 5 only, takes an injected `retrieve`; Slice 6 gains `events` in scope to wire the real one. Open bullet removed.
 - 2026-10-23: D-011 (Slice 7 retry dedup) written by Claude at Vajra's request ("follow best practices"): separate TTL table chosen over the notes table. SLICES.md Open section removed.
+- 2026-10-23: D-009 written by Claude at Vajra's request; text approved first. Adds one rule beyond the plan's line: status moves are conditional updates from CAPTURED only.
