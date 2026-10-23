@@ -58,8 +58,7 @@ def handle(event: Mapping[str, Any], *, table: Any, settings: Settings, now: int
     except ValidationError:
         return _response(400, "bad request", "text/plain")
 
-    text = request.text.strip()
-    if not text:
+    if not request.text.strip():
         return _ephemeral(USAGE_TEXT)
 
     note = Note(
@@ -67,7 +66,7 @@ def handle(event: Mapping[str, Any], *, table: Any, settings: Settings, now: int
         team_id=request.team_id,
         channel_id=request.channel_id,
         user_id=request.user_id,
-        text=text,
+        text=request.text,
     )
     put_if_absent(table, note)
     return _ephemeral(ACK_TEXT)

@@ -46,6 +46,11 @@ def test_valid_request_writes_note(slack_request, notes_table):
     assert note.status.value == "CAPTURED"
 
 
+def test_text_saved_as_typed(slack_request, notes_table):
+    _handle(slack_request(text="  padded note  "), notes_table)
+    assert get_note(notes_table, EXPECTED_NOTE_ID).text == "  padded note  "
+
+
 def test_bad_signature_returns_401_and_writes_nothing(slack_request, notes_table):
     _assert_rejected(_handle(slack_request(secret="wrong-secret"), notes_table), notes_table)
 
