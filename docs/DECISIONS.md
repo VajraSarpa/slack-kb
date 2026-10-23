@@ -9,3 +9,7 @@
         are not retried by Slack; the conditional put still blocks duplicates.
 - D-007 Signing secret from pydantic-settings; Secrets Manager wiring in Slice 8.
 - D-008 Retrieval store for Slice 6: undecided.
+- D-010 The error path is its own slice (2b), not part of Slice 2: when a note
+        goes FAILED after the DLQ, the user who ran /bnote gets an ephemeral
+        message via response_url (30-min window; no bot token). The capture
+        handler still never calls response_url; only the 2b path does.
