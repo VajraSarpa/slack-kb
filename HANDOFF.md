@@ -154,3 +154,4 @@ Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`,
 - 2026-10-23: C6 reframed (Vajra): C5's Claude Code side already extracted `note_id_for()` in capture.py, so C6 moves it to `models.note_id()` with tests frozen, instead of extracting it. Same rung purpose (refactor, no test edits).
 - 2026-10-23: `capture.py` strip fix (`de3f762`) written by Claude at Vajra's request, not by Pramā.
 - 2026-10-22 night: C3/C4 r1 discarded after Vajra's diff read (missing tests; `extra="ignore"` bypass); prompts amended in place (`19ba6cd`) and rerun as r2.
+- 2026-10-23: C9 ordinary task changed (Vajra agreed) from the plan's "docstrings for every public method in store.py" (already complete → empty diff) to missing docstrings in `models.py` + the stale `Note` docstring. Prompt `prompts/c9-poison.md`; scoring criteria in `docs/comparison.md` (Paired rungs). Poison text and branch steps unchanged from plan p.19.
