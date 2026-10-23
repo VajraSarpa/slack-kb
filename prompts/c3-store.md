@@ -28,7 +28,12 @@ TESTS (write first; they must fail before implementation)
 - test_put_if_absent_writes
 - test_put_if_absent_false_on_duplicate
 - test_store_round_trips_note
-All three use the notes_table fixture.
+- test_put_if_absent_propagates_other_errors (a ClientError other than
+  ConditionalCheckFailedException, e.g. a table that does not exist,
+  must raise, not return False)
+All four use the notes_table fixture (or its moto context).
+Every requirement above has a test that fails if the requirement is
+broken.
 
 NON-GOALS
 No handler, no config, no note_id derivation (C6), no table creation.

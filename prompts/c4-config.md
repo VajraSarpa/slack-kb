@@ -20,11 +20,18 @@ REQUIREMENTS
 3. notes_table: str, required, no default.
 4. No .env file is read and no secret value is hard-coded.
    repr(Settings()) must not contain the secret.
+5. Do not set `extra` in model_config. An unknown keyword argument
+   (e.g. a misspelled field name) must raise ValidationError, never be
+   silently ignored.
 
 TESTS (write first; they must fail before implementation)
 - test_reads_prefixed_env
 - test_missing_signing_secret_fails
+- test_missing_notes_table_fails
 - test_secret_not_in_repr
+- test_unknown_kwarg_rejected
+Every requirement above has a test that fails if the requirement is
+broken.
 
 NON-GOALS
 No Secrets Manager (Slice 8), no caching helper, no handler. Do not touch
