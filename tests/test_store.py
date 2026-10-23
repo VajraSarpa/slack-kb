@@ -48,3 +48,24 @@ def test_put_if_absent_propagates_other_errors(notes_table):
     with pytest.raises(ClientError) as exc:
         put_if_absent(missing, make_note())
     assert exc.value.response["Error"]["Code"] != "ConditionalCheckFailedException"
+
+
+def test_set_severity_leaves_status(notes_table):
+    from slackkb.models import NoteStatus, Severity
+    from slackkb.store import set_severity
+
+    note = make_note(status=NoteStatus.ROUTED)
+    assert put_if_absent(notes_table, note)
+    set_severity(notes_table, note.note_id, Severity.CRITICAL)
+    assert get_note(notes_table, note.note_id) == note.model_copy(
+        update={"severity": Severity.CRITICAL}
+    )
+
+
+def test_set_severity_missing_note_raises(notes_table):
+    from slackkb.models import Severity
+    from slackkb.store import NoteNotFoundError, set_severity
+
+    with pytest.raises(NoteNotFoundError):
+        set_severity(notes_table, "f" * 32, Severity.HIGH)
+    assert notes_table.scan()["Count"] == 0

@@ -7,7 +7,7 @@ from typing import Any
 
 from botocore.exceptions import ClientError
 
-from slackkb.models import Note, NoteStatus
+from slackkb.models import Note, NoteStatus, Severity
 
 
 def put_if_absent(table: Any, note: Note) -> bool:
@@ -64,3 +64,21 @@ def transition_status(
             raise NoteNotFoundError(note_id) from None
         return False
     return True
+
+
+def set_severity(table: Any, note_id: str, severity: Severity) -> None:
+    """Set the note's severity only; status and every other attribute are untouched (D-009).
+
+    Raises NoteNotFoundError if there is no such note.
+    """
+    try:
+        table.update_item(
+            Key={"note_id": note_id},
+            UpdateExpression="SET severity = :severity",
+            ConditionExpression="attribute_exists(note_id)",
+            ExpressionAttributeValues={":severity": severity.value},
+        )
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") == "ConditionalCheckFailedException":
+            raise NoteNotFoundError(note_id) from None
+        raise

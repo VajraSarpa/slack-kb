@@ -14,3 +14,4 @@ class Settings(BaseSettings):
     signing_secret: SecretStr
     notes_table: str
     capture_queue_url: str
+    slack_bot_token: SecretStr

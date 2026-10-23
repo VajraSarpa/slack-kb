@@ -36,6 +36,27 @@ def _ephemeral(text: str) -> dict[str, Any]:
     return _response(200, body, "application/json")
 
 
+def _ack(note_id: str) -> dict[str, Any]:
+    """The ack: same text, plus a section and a "Set severity" button (D-013)."""
+    blocks = [
+        {"type": "section", "text": {"type": "mrkdwn", "text": ACK_TEXT}},
+        {
+            "type": "actions",
+            "block_id": "note_actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "action_id": "set_severity",
+                    "text": {"type": "plain_text", "text": "Set severity"},
+                    "value": note_id,
+                }
+            ],
+        },
+    ]
+    body = json.dumps({"response_type": "ephemeral", "text": ACK_TEXT, "blocks": blocks})
+    return _response(200, body, "application/json")
+
+
 def _raw_body(event: Mapping[str, Any]) -> str:
     body = event.get("body") or ""
     if event.get("isBase64Encoded"):
@@ -71,10 +92,10 @@ def handle(
         text=request.text,
     )
     if not put_if_absent(table, note):
-        return _ephemeral(ACK_TEXT)
+        return _ack(note.note_id)
     try:
         send_capture_job(sqs, settings.capture_queue_url, CaptureJob(note_id=note.note_id))
     except EnqueueError as exc:
         logger.warning("enqueue failed (%s), note_id=%s", exc, note.note_id)
         return _ephemeral(RETRY_TEXT)
-    return _ephemeral(ACK_TEXT)
+    return _ack(note.note_id)
