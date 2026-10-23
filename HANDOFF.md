@@ -80,7 +80,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 - D-007 Signing secret from pydantic-settings; Secrets Manager wiring in Slice 8.
 - **D-008 Retrieval store for Slice 6 — undecided.** Must be settled before running Slice 6; record trade-off in `docs/DECISIONS.md`.
 
-Also open before Slice 5: pick the Bedrock model, verify its current ID during Step 6 audit, scope IAM to that ARN only.
+Bedrock model picked 10-23 (D-012, Haiku 5.5). **Slice 8 prereqs:** (1) the `slackkb-dev` SSO profile does not exist — `~/.aws` has only `dev`/`prod` with long-lived keys; Vajra runs `aws configure sso --profile slackkb-dev` (needs IAM Identity Center). (2) Then look up the exact ID: `aws bedrock list-inference-profiles --profile slackkb-dev --region us-east-2` filtered on `haiku`; fill it into D-012.
 
 ## Next (start here)
 
@@ -93,8 +93,8 @@ Session 10-23 ended cleanly: C8 + C9 run and recorded, D-010 written, nothing in
    a. Done 10-23: Slice 7 depends on 5 only (injected `retrieve`, fake in tests); Slice 6 wires the real one into `events`.
    b. Done 10-23: D-011 (event_id claim → enqueue; release claim + 500 on enqueue failure; own TTL table, infra in Slice 8).
    c. Done 10-23: D-009 in DECISIONS.md (status moves are conditional updates from CAPTURED only).
-   d. **Bedrock model-ID line** (`cicd-spec.md:164`) — start here.
-   e. `capture_queue` SQS fixture in `tests/conftest.py` (Vajra's file).
+   d. Done 10-23: D-012 (Haiku 5.5, ID in config, IAM on profile + foundation-model ARNs). Exact ID unverified — see Slice 8 prereqs.
+   e. `capture_queue` SQS fixture in `tests/conftest.py` (Vajra's file). — start here.
    f. Done 10-23: SLICES.md "Open" section removed (both bullets resolved).
    Done 10-23: error path → **Slice 2b** via `response_url` (D-010, `3123961`). 2b scope includes `models` because C1 left `response_url` out of `CaptureRequest`; it must be carried capture → SQS → DLQ handler and never logged (raise at Slice 9).
 3. Then **C11 (Slice 2)**, paired with Claude Code (`docs/comparison.md`; Pramā runs first this time). Explain the rung to Vajra before writing `prompts/c11-*.md`; commit prompt before either run.
@@ -168,3 +168,4 @@ Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`,
 - 2026-10-23: SLICES.md rows 6 and 7 edited by Claude at Vajra's request ("write it"): Slice 7 depends on 5 only, takes an injected `retrieve`; Slice 6 gains `events` in scope to wire the real one. Open bullet removed.
 - 2026-10-23: D-011 (Slice 7 retry dedup) written by Claude at Vajra's request ("follow best practices"): separate TTL table chosen over the notes table. SLICES.md Open section removed.
 - 2026-10-23: D-009 written by Claude at Vajra's request; text approved first. Adds one rule beyond the plan's line: status moves are conditional updates from CAPTURED only.
+- 2026-10-23: D-012 (Bedrock model) written by Claude at Vajra's request; model is Vajra's choice (Haiku 5.5). Exact ID left unverified: `slackkb-dev` SSO profile was never created (Phase 0 gap), deferred to before Slice 8.

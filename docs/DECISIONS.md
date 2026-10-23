@@ -26,3 +26,13 @@
         Keys live in their own DynamoDB table with a 1-hour TTL, not the
         notes table: they aren't notes, and Slack's retries end within
         minutes. The table is Vajra's to add in infra/ (Slice 8).
+- D-012 Q&A model (Slice 5): Claude Haiku 5.5 on Bedrock, called through a
+        cross-region inference profile (us. prefix). The model ID is a
+        pydantic-settings field, never hard-coded in llm.py. IAM allows
+        bedrock:InvokeModel on exactly two ARNs: the inference profile
+        (arn:aws:bedrock:<region>:<account>:inference-profile/us.anthropic.<id>)
+        and the foundation model it routes to
+        (arn:aws:bedrock:*::foundation-model/anthropic.<id>). The tutorial's
+        ARN (cicd-spec.md:164) mixes the two forms and is not reused.
+        Exact <id> is unverified: look it up with the slackkb-dev SSO
+        profile before Slice 8.
