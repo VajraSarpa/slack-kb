@@ -11,6 +11,7 @@ import pytest
 from moto import mock_aws
 
 SIGNING_SECRET = "test-signing-secret"
+BOT_TOKEN = "xoxb-test-token"
 NOTES_TABLE = "slackkb-notes-test"
 CAPTURE_QUEUE = "slackkb-capture-test"
 CAPTURE_DLQ = "slackkb-capture-dlq-test"
@@ -27,6 +28,7 @@ def offline_env(monkeypatch):
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
     monkeypatch.setenv("SLACKKB_SIGNING_SECRET", SIGNING_SECRET)
     monkeypatch.setenv("SLACKKB_NOTES_TABLE", NOTES_TABLE)
+    monkeypatch.setenv("SLACKKB_SLACK_BOT_TOKEN", BOT_TOKEN)
 
 
 @pytest.fixture
