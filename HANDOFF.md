@@ -18,7 +18,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 - Repo: `VajraSarpa/slack-kb` (private), `main` tracks `origin/main`.
 - Last substantive commit: `c85c248` (merge of C4 r2). Before it: `9fa00d9` (merge of C3 r2), `27d308f` (C3/C4 r2 records), `19ba6cd` (C3/C4 prompts r2), `1bd002d` (C4 run records), `ca09376` (C3 run records), `77ba69f` (C3/C4 prompts), `492fe1a` (C10 Claude Code side), `6db642c` (merge of C2, Claude Code side `6a21c7c`), `430a886` (merge of C1 r2), `548e2ff` (pytest pythonpath=src), `b3b21a4` (Phase 0 scaffold).
 - Convention: handoff-only commits don't update this SHA.
-- Suite on `main`: 27 passed, ruff clean (`models`, `slack_verify`, `store`, `config`). Pushed `58d45b4`; the merges + records are local until Vajra says push.
+- Suite on `main`: 27 passed, ruff clean (`models`, `slack_verify`, `store`, `config`). Pushed through `6d24115` (origin/main = main, checked 10-22).
 - Skills: `prama-fieldtest` (operator, for every `prama` run; live `~/.claude/skills/prama-fieldtest/SKILL.md`, snapshot `skills/prama-fieldtest/`, both in sync) and `slackkb-instructor` (app side).
 
 ### Pramā setup (done 2026-10-20)
@@ -80,9 +80,9 @@ Also open before Slice 5: pick the Bedrock model, verify its current ID during S
 Solo session 10-22 night done (operator ran commands itself; scope: preflight, C10-CC, C3, C4, all completed). Back to the normal rule: Vajra types commands, one per message. If he asks for another solo session, the key goes in as `OPENROUTER_API_KEY=$(cat ~/.config/openrouter.key)` before `prama` (Bash doesn't source `~/.bashrc`; never echo it), plus `PYDANTIC_AI_NO_BANNER=1`.
 
 1. Preflight per `prama-fieldtest` (install current as of 10-22 night: Prama `277b80a`, receipt 18:13:51 10-20).
-2. `git push` when Vajra says (r2 commits are local).
+2. ~~`git push`~~ done (main = origin/main at `6d24115`).
 3. **C3 + C4 done 10-22:** r2 merged (`9fa00d9`, `c85c248`), main 27 passed. Cleanup (Vajra): `prama clean --session` for r1 `personal_509380bc`, `personal_6845bfac` and the applied r2 worktrees. Slice 1 now needs C5 (capture) and C6 (note_id).
-4. Next: C5 (paired; Claude Code runs first). Before it: save `prompts/01-slice-capture.md` (carry-over below) and add "every requirement has a test that fails if broken" (worked in C3/C4 r2), commit, and switch `../slack-kb-cc` to `cmp/c5-claudecode` from that commit. `prama apply` asks `[y/N]` after review: operator pipes `echo y |` only with Vajra's go-ahead.
+4. Next: C5 (paired; Claude Code runs first). `prompts/01-slice-capture.md` drafted 10-22 (plan p.19 edits applied; Vajra chose injected table: `handle(event, *, table, settings, now)`, scope capture.py + test_capture.py only, no Lambda entry point). Vajra reads it, then commit, and switch `../slack-kb-cc` to `cmp/c5-claudecode` from that commit. `prama apply` asks `[y/N]` after review: operator pipes `echo y |` only with Vajra's go-ahead.
 5. Prama queue (Prama repo, prama-instructor): #11 (verify vs eval claim rule) is now the most visible: it turns a clean PASS into an apply refusal. Then #2/#3 (absence claims), #8 (commit subject), #12 (banner). Optional app-side: a `.gitignore`.
 6. C9: write its prompt + both sides' scoring criteria and commit before either run; Claude Code runs first.
 7. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
