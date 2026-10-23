@@ -1,4 +1,4 @@
-# SlackKB handoff (updated 2026-10-22 night; solo session: C10-CC scored, C3 + C4 passed and staged; next: Vajra reads C3/C4 diffs)
+# SlackKB handoff (updated 2026-10-23; C5 prompt committed, Claude Code side run; next: C5 Pramā side)
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
@@ -82,7 +82,7 @@ Solo session 10-22 night done (operator ran commands itself; scope: preflight, C
 1. Preflight per `prama-fieldtest` (install current as of 10-22 night: Prama `277b80a`, receipt 18:13:51 10-20).
 2. ~~`git push`~~ done (main = origin/main at `6d24115`).
 3. **C3 + C4 done 10-22:** r2 merged (`9fa00d9`, `c85c248`), main 27 passed. Cleanup (Vajra): `prama clean --session` for r1 `personal_509380bc`, `personal_6845bfac` and the applied r2 worktrees. Slice 1 now needs C5 (capture) and C6 (note_id).
-4. Next: C5 (paired; Claude Code runs first). `prompts/01-slice-capture.md` drafted 10-22 (plan p.19 edits applied; Vajra chose injected table: `handle(event, *, table, settings, now)`, scope capture.py + test_capture.py only, no Lambda entry point). Vajra reads it, then commit, and switch `../slack-kb-cc` to `cmp/c5-claudecode` from that commit. `prama apply` asks `[y/N]` after review: operator pipes `echo y |` only with Vajra's go-ahead.
+4. C5 in progress. Prompt committed `adda6fd`. **Claude Code side done 10-23** (session e2263261, 29 min, 3 approvals, 44 passed; `docs/runs/c5-claudecode.md`); its two files are committed on `cmp/c5-claudecode` as `dc52bb7` (in `../slack-kb-cc`). Next: Pramā side from `adda6fd` on main: `prama task "$(cat prompts/01-slice-capture.md)" --check "python -m pytest tests/test_capture.py" --scope src/slackkb/capture.py --scope tests/test_capture.py`, tee `docs/runs/c5.md`, then `prama eval`, then blind A/B (fresh subagent, Vajra keeps key), then Vajra merges one. `prama apply` asks `[y/N]` after review.
 5. Prama queue (Prama repo, prama-instructor): #11 (verify vs eval claim rule) is now the most visible: it turns a clean PASS into an apply refusal. Then #2/#3 (absence claims), #8 (commit subject), #12 (banner). Optional app-side: a `.gitignore`.
 6. C9: write its prompt + both sides' scoring criteria and commit before either run; Claude Code runs first.
 7. Before C11: settle the three open items at the bottom of `docs/SLICES.md` (error path → Slice 2 or 2b; Slice 7 depends on 6 or only 5; Slice 7 retry dedup), each with a DECISIONS.md line; also the Bedrock model-ID line (`cicd-spec.md:164`). Remove SLICES.md "Open" section; commit.
