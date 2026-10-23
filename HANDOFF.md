@@ -18,7 +18,7 @@ Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One cl
 - Repo: `VajraSarpa/slack-kb` (private), `main` tracks `origin/main`.
 - Last substantive commit: `3123961` (D-010). Before it: `7eb43bd` (C9 records), `2a407f8` (C9 prompt), `fc2a3c0` (C8 records), `8e9be30` (C8 prompt), `71b6b5f` (merge of C6), `de3f762` (capture strip fix), `d88b428` (merge of C5, Claude Code side `dc52bb7`), `97ecb45` (C5 Pramā + blind A/B records), `adda6fd` (C5 prompt), `c85c248` (merge of C4 r2), `9fa00d9` (merge of C3 r2), `27d308f` (C3/C4 r2 records), `19ba6cd` (C3/C4 prompts r2), `1bd002d` (C4 run records), `ca09376` (C3 run records), `77ba69f` (C3/C4 prompts), `492fe1a` (C10 Claude Code side), `6db642c` (merge of C2, Claude Code side `6a21c7c`), `430a886` (merge of C1 r2), `548e2ff` (pytest pythonpath=src), `b3b21a4` (Phase 0 scaffold).
 - Convention: handoff-only commits don't update this SHA.
-- Suite on `main`: 45 passed, ruff clean (`models`, `slack_verify`, `store`, `config`, `capture`). `main` ahead of origin by 1 at close (`3123961`).
+- Suite on `main`: 45 passed (46 with a throwaway fixture smoke test, deleted), ruff clean (`models`, `slack_verify`, `store`, `config`, `capture`). `main` ahead of origin by 1 at close (`3123961`).
 - Skills: `prama-fieldtest` (operator, for every `prama` run; live `~/.claude/skills/prama-fieldtest/SKILL.md`, snapshot `skills/prama-fieldtest/`, both in sync) and `slackkb-instructor` (app side).
 
 ### Pramā setup (done 2026-10-20)
@@ -94,10 +94,10 @@ Session 10-23 ended cleanly: C8 + C9 run and recorded, D-010 written, nothing in
    b. Done 10-23: D-011 (event_id claim → enqueue; release claim + 500 on enqueue failure; own TTL table, infra in Slice 8).
    c. Done 10-23: D-009 in DECISIONS.md (status moves are conditional updates from CAPTURED only).
    d. Done 10-23: D-012 (Haiku 5.5, ID in config, IAM on profile + foundation-model ARNs). Exact ID unverified — see Slice 8 prereqs.
-   e. `capture_queue` SQS fixture in `tests/conftest.py` (Vajra's file). — start here.
+   e. Done 10-23: `aws` (shared moto) + `capture_queue` (queue + DLQ, maxReceiveCount 3, sets `SLACKKB_CAPTURE_QUEUE_URL`) in `tests/conftest.py`; `notes_table` now depends on `aws`. SLICES row 2 gains `config`.
    f. Done 10-23: SLICES.md "Open" section removed (both bullets resolved).
    Done 10-23: error path → **Slice 2b** via `response_url` (D-010, `3123961`). 2b scope includes `models` because C1 left `response_url` out of `CaptureRequest`; it must be carried capture → SQS → DLQ handler and never logged (raise at Slice 9).
-3. Then **C11 (Slice 2)**, paired with Claude Code (`docs/comparison.md`; Pramā runs first this time). Explain the rung to Vajra before writing `prompts/c11-*.md`; commit prompt before either run.
+3. **Start here:** C11 (Slice 2), paired with Claude Code (`docs/comparison.md`; Pramā runs first this time). Explain the rung to Vajra before writing `prompts/c11-*.md`; commit prompt before either run.
 4. Gap to raise at Slice 5: Bedrock failure during Q&A has no owning slice (old error-path bullet covered "Bedrock or the store"; 2b only covers the DLQ). Recommendation given: fold into Slice 5's acceptance check.
 5. Cleanup (Vajra, any time): `prama clean --session` for `personal_9b9c7f62` (C7), `personal_a4dc45a8` (C8), `personal_85e3fad9` (C9; holds poisoned `99e4fd2`), `personal_601d2df4` (C5, kept for scoring), r1 `personal_509380bc`, `personal_6845bfac`, applied worktrees. Delete branch `cmp/c9-claudecode` (also holds `99e4fd2`).
 6. Prama queue (Prama repo, prama-instructor): **#13 spec gate is the headline gap** — missed C7 (vague) and C8 (out-of-scope path + deploy); no harness-layer reject or Clarification exists yet, and the exit review wants both. Then: C5 mutation step in verify; #11 (verify vs eval claim rule); #2/#3 (absence claims); #8 (commit subject); #12 (banner). Untested: āpta guard on an organic read (C9), validity gate T3 (C8 never reached it).
@@ -119,7 +119,7 @@ Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`,
 - Costs to fill from the OpenRouter dashboard: A0 (~04:54, ~04:57 on 10-15), C10 (~12:44 on 10-20).
 - Before C5: save `prompts/01-slice-capture.md` from the first-prompt file with three edits (plan p.19): drop `tests/conftest.py` and `tests/fixtures/slash_bnote.json` from SCOPE; requirement 2 → D-006 wording; add "handler returns the ack response; it never calls Slack's response_url".
 - C9 done 10-23: `calib/poison` deleted, `reference/tutorial` re-locked (a-w).
-- Before C11: add `capture_queue` SQS fixture to `tests/conftest.py` (Vajra). D-009 done 10-23.
+- C11 prerequisites all done 10-23 (D-009, D-011, D-012, `capture_queue` fixture, SLICES Open removed).
 - Phase 1 gate: if C1–C11 logged and C7–C9 behaved / C10 matched grep, widen GitHub token to Contents + Pull-requests write. Fine-grained read-only token still not created (Vajra, github.com).
 
 ## Phase 1 ladder quick reference
@@ -169,3 +169,4 @@ Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`,
 - 2026-10-23: D-011 (Slice 7 retry dedup) written by Claude at Vajra's request ("follow best practices"): separate TTL table chosen over the notes table. SLICES.md Open section removed.
 - 2026-10-23: D-009 written by Claude at Vajra's request; text approved first. Adds one rule beyond the plan's line: status moves are conditional updates from CAPTURED only.
 - 2026-10-23: D-012 (Bedrock model) written by Claude at Vajra's request; model is Vajra's choice (Haiku 5.5). Exact ID left unverified: `slackkb-dev` SSO profile was never created (Phase 0 gap), deferred to before Slice 8.
+- 2026-10-23: `tests/conftest.py` `aws` + `capture_queue` fixtures written by Claude at Vajra's request ("write for me"); smoke-tested (queue→DLQ redrive, shared context with `notes_table`) then the smoke test deleted. SLICES row 2 scope gains `config` (worker needs the queue URL setting).

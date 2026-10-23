@@ -5,7 +5,7 @@ Written in Step 7 from the audit (`docs/audit-A0.md`), following the plan's slic
 | # | Goal | Files in scope | Acceptance check | Depends on |
 |---|------|----------------|------------------|------------|
 | 1 | `/bnote` verified, acked, stored. Verify the signature before parsing; body is form-encoded (A0 #5). Conditional put on `note_id` (D-006). | `models`, `slack_verify`, `store`, `config`, `capture` | `uv run pytest tests/test_capture.py::test_retry_does_not_duplicate` | – |
-| 2 | Ack fast; the worker consumes SQS. Status CAPTURED → ROUTED, or FAILED after the DLQ (D-009). | `capture`, `queue`, `worker` | `uv run pytest tests/test_worker.py::test_ack_before_processing` | 1 |
+| 2 | Ack fast; the worker consumes SQS. Status CAPTURED → ROUTED, or FAILED after the DLQ (D-009). | `capture`, `queue`, `worker`, `config` | `uv run pytest tests/test_worker.py::test_ack_before_processing` | 1 |
 | 2b | A note that goes FAILED after the DLQ tells its user via `response_url` (D-010). | `models`, `worker`, `notify`, `slack_api` (fake) | `uv run pytest tests/test_notify.py::test_failed_note_notifies_user` | 2 |
 | 3 | Severity modal (`views.open` + `view_submission`). Severity checked against the OKF enum. | `modal`, `slack_api` (fake) | `uv run pytest tests/test_modal.py::test_modal_submission_updates_severity` | 1 |
 | 4 | Worker writes the note to S3 as OKF (S3 is canonical). | `worker`, `blob`, `okf_note` | `uv run pytest tests/test_okf_note.py::test_note_round_trips_as_okf` | 2 |
