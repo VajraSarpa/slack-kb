@@ -23,7 +23,7 @@ How a knowledge pair differs from a build pair:
 
 1. The prompt file (`prompts/<rung>.md`) is written and committed **before either run**, and not edited between them.
 2. Both runs start from the same commit.
-   - Pramā: `prama task` from the repo root as usual.
+   - Pramā: `prama task --review` from the repo root, on both drivers (Sārathi: Opus reviewer; OpenRouter: gemini). Decided 2026-11-03 (Vajra): the in-loop reviewer is part of the layer being measured, and its FLAG drives attempt 2. Its cost and time, and `prama apply`'s second review of the same diff, count in Pramā's column.
    - Claude Code: one fixed worktree `../slack-kb-cc` for every pair, so Claude Code's folder-keyed memory can build up the way Pramā's project memory can (C2: `git worktree add -b cmp/c2-claudecode ../slack-kb-cc <base>`; later pairs: `git -C ../slack-kb-cc switch -c cmp/<rung>-claudecode <base>`). Start a fresh session there with `claude --permission-mode acceptEdits --disable-slash-commands "$(cat prompts/<rung>.md)"`, no hand edits until it says done. Known difference: `~/Projects/CLAUDE.md` loads from the parent folder.
    - Alternate which runs first (C2 Pramā first, C5 Claude Code first, C11 Pramā first).
 3. Record for each side: wall time, cost (Pramā from `prama stats`; Claude Code from the session JSONL token usage in `~/.claude/projects/-home-vajrasarpa-Projects-slack-kb-cc/` (`--disable-slash-commands` also blocks `/cost` and `/exit`; quit with Ctrl+C twice), notional if on subscription, and say so), attempts or turns, **interventions** (each time Vajra had to approve, answer, or fix something), checks pass/fail.
