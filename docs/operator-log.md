@@ -156,3 +156,13 @@ Logged after the fact; times approximate (local).
 - verified in the worktree: 5000-digit timestamp → `SignatureError: timestamp is not an integer`; full pytest + ruff pass. [manual verification]
 - `prama apply` not run: main has uncommitted docs, and the merge is Vajra's. [deferred to Vajra]
 - D-015 drafted in `docs/DECISIONS.md` at Vajra's yes, marked DRAFT; it mirrors D-011 (delete on enqueue failure). [deferred to Vajra]
+
+## 2026-11-04 — live `--review --mutate` reruns (C5, C11) on Sārathi
+- 02:05 preflight: install editable (`.pth` → `~/Projects/Prama/src`, Prama `8e94f95`); `GITHUB_TOKEN` unset; `~/.prama/projects/slack-kb.yaml` present. [observed]
+- Claude ran both (the Prama HANDOFF "Start here" item 1; "continue from the handoff"). Checkouts `~/Projects/sk-sarathi-c5` (`aeb5a0d`) and `sk-sarathi-c11` (`d33510c`), detached; goals copied verbatim from session_start of personal_601d2df4 / personal_a3a6a180; same `--scope`, C5's extra `--check`; `--no-spec`. [judgment; workaround, no `--base`]
+- C5 02:06:24–02:12:22 EST, personal_150aed83, ready_for_human after attempt 2. [observed]
+- verified: worktree 44 passed + ruff clean with the prepared env; the attempt-1 mutant (line 44 → `pass`) in a scratch copy fails 2 tests; attempt-2 prompt contains the survivor reason; diff only the 2 SCOPE files. [manual verification]
+- extra check: `ConditionExpression` deleted from `store.py` in the scratch copy → 17/17 capture tests pass (old A/B Major still there). [manual verification]
+- C11 02:13:35–02:18:40 EST, personal_a1e679e6, ready_for_human after attempt 1. [observed]
+- verified: worktree 57 passed + ruff clean; eval 0; diff only the 9 SCOPE paths. 8 hand mutations in a scratch copy (the 10-23 seven + swallowing non-conditional ClientErrors): 7 caught; whole-batch failure on the `except Exception` branch survives. My first M7 anchor hit that branch, not the validation one I meant; reran on the validation branch: caught. [manual verification; operator slip, corrected]
+- 02:20 removed `~/Projects/sk-sarathi-c5` and `sk-sarathi-c11` (`git worktree remove`, clean). Pramā worktrees personal_150aed83 / personal_a1e679e6 kept. `prama apply` not run (comparison only). [observed]
