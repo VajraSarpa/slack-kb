@@ -60,3 +60,18 @@
         moves CAPTURED -> ROUTED; the put is an idempotent overwrite, and
         an S3 failure raises so SQS retries and the DLQ applies. All S3
         access goes through blob.py; the bucket name is a Settings field.
+- D-015 (DRAFT 2026-11-04, Claude; Vajra to confirm or change) A failed
+        enqueue leaves no note behind. Found by the Sārathi C11 run: when
+        capture writes CAPTURED and the SQS send fails, the user gets the
+        retry message but the note stays CAPTURED forever with no job.
+        D-006 means Slack never retries a slash command, and the user's own
+        retry has a new trigger_id, so a new note_id; nothing ever
+        processes the old note. Rule, mirroring D-011: on an enqueue
+        failure, capture deletes the note with a conditional delete (only
+        while status is CAPTURED), logs the note_id, and returns the retry
+        message. If the delete fails too, log it and still return the
+        retry message. The duplicate path is unchanged (a duplicate still
+        sends nothing; Slice 2 req 2). Rejected: re-sending on a duplicate
+        (no duplicate ever arrives for a slash command), and a sweeper
+        (more moving parts for a rare failure). Needs store.delete_if_captured
+        and a test that a failed send leaves no item.
