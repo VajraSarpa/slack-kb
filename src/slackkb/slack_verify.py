@@ -32,7 +32,11 @@ def verify(headers: Mapping[str, str], body: str, secret: str, now: int) -> None
         raise SignatureError("missing signature header")
     if not _TIMESTAMP_RE.fullmatch(timestamp):
         raise SignatureError("timestamp is not an integer")
-    if abs(now - int(timestamp)) > MAX_SKEW_SECONDS:
+    try:
+        timestamp_value = int(timestamp)
+    except ValueError:
+        raise SignatureError("timestamp is not an integer") from None
+    if abs(now - timestamp_value) > MAX_SKEW_SECONDS:
         raise SignatureError("timestamp outside allowed window")
 
     base = f"v0:{timestamp}:{body}".encode()
