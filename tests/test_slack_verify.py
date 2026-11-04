@@ -63,6 +63,13 @@ def test_non_integer_timestamp_rejected(slack_request):
         _check(event, now=12)
 
 
+def test_huge_timestamp_rejected(slack_request):
+    event = slack_request()
+    event["headers"][TS_HEADER] = "9" * 5000
+    with pytest.raises(SignatureError):
+        _check(event)
+
+
 def test_lowercase_headers_accepted(slack_request):
     _check(slack_request(lowercase_headers=True))
 
