@@ -1,8 +1,9 @@
 [project]
 name = "slackkb"
 version = "0.1.0"
-description = "Add your description here"
+description = "Slack incident-note knowledge base on AWS (Lambda, SQS, DynamoDB, S3, Bedrock), built test-first"
 readme = "README.md"
+license = "MIT"
 authors = [
     { name = "VajraSarpa", email = "vajrasarpa@gmail.com" }
 ]
