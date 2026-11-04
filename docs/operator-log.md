@@ -139,3 +139,20 @@ Logged after the fact; times approximate (local).
 - 10-23 C11 Claude Code side: Vajra `git switch -c cmp/c11-claudecode d33510c` in `../slack-kb-cc`, ran `claude --permission-mode acceptEdits --disable-slash-commands "$(cat prompts/c11-slice-async.md)"`: session e5ecb18f, 17:09:45–17:14:20 UTC, 11 approvals (Vajra count). Left uncommitted. Rerun with main's venv: 58 passed, ruff clean. [observed; manual verification]
 - blind A/B packet in scratchpad `c11-review/` (prompt + A/B diffs; CC new files via `git diff --no-index /dev/null`, Pramā via existing intent-to-add, without touching either worktree's index); `$RANDOM` coin flip, key `c11-KEY.txt` outside the packet. grep for prama/claude/personal_/session/worktree: 0. Reviewer = fresh general-purpose subagent (Opus 5.5). [judgment]
 - review back A 0/0/5, B 0/2/11. Before unblinding, checked: B Major 1 (make signing_secret + notes_table optional → B test_config 7 passed, A 3 failed) confirmed; B Major 2 (narrow except to ClientError in queue.py + worker.py → B 55 passed, A 2 failed) confirmed; A's unverified log-leak minor dropped (constants equal fixture); B's matching minor kept (`hooks.slack.com` ≠ fixture `hooks.slack.invalid`). Key: A=Claude Code, B=Pramā. [manual verification]
+
+## 2026-11-04 — Sārathi comparison column (C2, C5, C11, C9, C10)
+- 00:20 preflight: Prama install is editable (`.pth` → `~/Projects/Prama/src`), so current; one prepared env `82ef87d9d3b99379` up to date for all four bases; `GITHUB_TOKEN` unset. [observed]
+- base commits taken from the OpenRouter Pramā side's worktrees/branches (C2 `f37d7ce`, C5 `aeb5a0d`, C11 `d33510c`, C9 `99e4fd2`); detached checkouts `~/Projects/sk-sarathi-{c2,c5,c11,c9}` so `prama task` (no `--base` flag) starts from them; project file matched by remote. [workaround; Pramā has no `--base`]
+- goals copied verbatim from each original session_start (not the prompt files); same `--scope`, same extra `--check`. Added `--no-spec`: the originals had no spec gate. [judgment]
+- Claude ran all five, not Vajra (he said "run the comparison"). C5/C11/C9 ran back to back in the background; the C10 ask ran during C5, so the two overlapped. [judgment]
+- verified: reran pytest + ruff in each worktree with the prepared env (C2/C5/C11/C9 pass, ruff clean); C10 citations and absence claim against `grep -rn -i -E "retry|dedup|X-Slack" reference/tutorial`. [manual verification]
+- blind A/B: packets in the session scratchpad, coin-flip key outside them. Slip: I printed the C2 key in the same command as my check of the B code, before I had reproduced B's Major; the reproduction came after (5000-digit timestamp → `ValueError` on main's `verify`). [operator mistake]
+- C5 Major checked by mutation (drop `ConditionExpression` in a scratch copy): Sārathi tests pass, CC's retry test fails. First mutation `sed` broke the syntax; redone by deleting the line. [manual verification]
+- `prama apply` not run on any of them; the worktrees stay for scoring. [deferred to Vajra]
+
+## 2026-11-04 — follow-ups (Vajra: 1 yes, 2 yes, 3 both, 4 ok, 5 ok)
+- 00:45 removed the four `~/Projects/sk-sarathi-*` checkouts (`git worktree remove`; all clean). [observed]
+- prompt `prompts/fix-verify-long-ts.md` written by Claude from the C2 template, with all three lesson lines dropped (memory test). Ran it 06:02:17–06:03:58 UTC with `--review` and the spec gate on, on Prama with the reviewer fixes uncommitted (editable install). [judgment]
+- verified in the worktree: 5000-digit timestamp → `SignatureError: timestamp is not an integer`; full pytest + ruff pass. [manual verification]
+- `prama apply` not run: main has uncommitted docs, and the merge is Vajra's. [deferred to Vajra]
+- D-015 drafted in `docs/DECISIONS.md` at Vajra's yes, marked DRAFT; it mirrors D-011 (delete on enqueue failure). [deferred to Vajra]
