@@ -1,9 +1,9 @@
 import boto3
 import pytest
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError
 
-from slackkb.models import Note
-from slackkb.store import get_note, put_if_absent
+from slackkb.models import Note, NoteStatus
+from slackkb.store import StoreError, delete_if_captured, get_note, put_if_absent
 
 
 def make_note(**overrides) -> Note:
@@ -69,3 +69,42 @@ def test_set_severity_missing_note_raises(notes_table):
     with pytest.raises(NoteNotFoundError):
         set_severity(notes_table, "f" * 32, Severity.HIGH)
     assert notes_table.scan()["Count"] == 0
+
+
+def test_delete_if_captured_deletes_captured(notes_table):
+    note = make_note()
+    assert put_if_absent(notes_table, note)
+    assert delete_if_captured(notes_table, note.note_id) is True
+    assert get_note(notes_table, note.note_id) is None
+
+
+def test_delete_if_captured_leaves_routed(notes_table):
+    note = make_note(status=NoteStatus.ROUTED)
+    assert put_if_absent(notes_table, note)
+    assert delete_if_captured(notes_table, note.note_id) is False
+    assert get_note(notes_table, note.note_id) == note
+
+
+def test_delete_if_captured_false_for_missing(notes_table):
+    assert delete_if_captured(notes_table, "f" * 32) is False
+    assert notes_table.scan()["Count"] == 0
+
+
+def test_delete_if_captured_wraps_other_errors(notes_table):
+    missing = boto3.resource("dynamodb").Table("no-such-table")
+    with pytest.raises(StoreError) as exc:
+        delete_if_captured(missing, "a" * 32)
+    assert "ClientError" in str(exc.value)
+    assert "a" * 32 not in str(exc.value)
+
+
+def test_delete_if_captured_wraps_botocore_errors():
+    class _UnreachableTable:
+        def delete_item(self, **kwargs):
+            raise EndpointConnectionError(endpoint_url="https://dynamodb.invalid")
+
+    with pytest.raises(StoreError) as exc:
+        delete_if_captured(_UnreachableTable(), "a" * 32)
+    assert str(exc.value) == "EndpointConnectionError"
+    assert "a" * 32 not in str(exc.value)
+    assert "dynamodb.invalid" not in str(exc.value)

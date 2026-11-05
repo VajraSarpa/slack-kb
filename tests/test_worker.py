@@ -13,7 +13,7 @@ from conftest import SIGNING_SECRET
 from slackkb import capture, worker
 from slackkb.config import Settings
 from slackkb.models import CaptureJob, Note, NoteStatus
-from slackkb.store import get_note, put_if_absent
+from slackkb.store import StoreError, get_note, put_if_absent
 
 SRC = Path(__file__).parent.parent / "src" / "slackkb"
 TEAM_ID = "T000TEST"
@@ -101,10 +101,28 @@ def test_enqueue_failure_returns_retry_message(
     assert body["response_type"] == "ephemeral"
     assert body == {"response_type": "ephemeral", "text": capture.RETRY_TEXT}
     assert "try again" in body["text"]
-    assert get_note(notes_table, EXPECTED_NOTE_ID).status is NoteStatus.CAPTURED
+    assert get_note(notes_table, EXPECTED_NOTE_ID) is None
     # Only our own log lines; botocore's DEBUG output echoes request params.
     ours = [r for r in caplog.records if r.name.startswith("slackkb")]
     assert any(r.levelno == logging.WARNING and EXPECTED_NOTE_ID in r.getMessage() for r in ours)
+    for secret in (NOTE_TEXT, SIGNING_SECRET, RESPONSE_URL):
+        assert all(secret not in r.getMessage() for r in ours)
+
+
+def test_failed_delete_after_failed_enqueue_still_returns_retry(
+    slack_request, notes_table, capture_queue, caplog, monkeypatch
+):
+    def boom(table, note_id):
+        raise StoreError("ClientError")
+
+    monkeypatch.setattr(capture, "delete_if_captured", boom)
+    sqs = _FailingSqs(EndpointConnectionError(endpoint_url="https://sqs.invalid"))
+    with caplog.at_level(logging.DEBUG, logger="slackkb"):
+        resp = _capture(slack_request(), notes_table, sqs=sqs)
+    assert json.loads(resp["body"]) == {"response_type": "ephemeral", "text": capture.RETRY_TEXT}
+    ours = [r for r in caplog.records if r.name.startswith("slackkb")]
+    warnings = [r.getMessage() for r in ours if r.levelno == logging.WARNING]
+    assert sum(EXPECTED_NOTE_ID in m for m in warnings) >= 2
     for secret in (NOTE_TEXT, SIGNING_SECRET, RESPONSE_URL):
         assert all(secret not in r.getMessage() for r in ours)
 

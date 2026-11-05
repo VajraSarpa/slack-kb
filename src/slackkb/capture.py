@@ -18,7 +18,7 @@ from slackkb.config import Settings
 from slackkb.models import CaptureJob, CaptureRequest, Note, note_id
 from slackkb.queue import EnqueueError, send_capture_job
 from slackkb.slack_verify import SignatureError, verify
-from slackkb.store import put_if_absent
+from slackkb.store import StoreError, delete_if_captured, put_if_absent
 
 logger = logging.getLogger(__name__)
 
@@ -97,5 +97,9 @@ def handle(
         send_capture_job(sqs, settings.capture_queue_url, CaptureJob(note_id=note.note_id))
     except EnqueueError as exc:
         logger.warning("enqueue failed (%s), note_id=%s", exc, note.note_id)
+        try:
+            delete_if_captured(table, note.note_id)
+        except StoreError as delete_exc:
+            logger.warning("note delete failed (%s), note_id=%s", delete_exc, note.note_id)
         return _ephemeral(RETRY_TEXT)
     return _ack(note.note_id)
