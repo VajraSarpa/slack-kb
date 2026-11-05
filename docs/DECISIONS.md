@@ -60,7 +60,7 @@
         moves CAPTURED -> ROUTED; the put is an idempotent overwrite, and
         an S3 failure raises so SQS retries and the DLQ applies. All S3
         access goes through blob.py; the bucket name is a Settings field.
-- D-015 (DRAFT 2026-11-04, Claude; Vajra to confirm or change) A failed
+- D-015 (2026-11-04, confirmed by Vajra) A failed
         enqueue leaves no note behind. Found by the Sārathi C11 run: when
         capture writes CAPTURED and the SQS send fails, the user gets the
         retry message but the note stays CAPTURED forever with no job.
