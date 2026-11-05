@@ -5,7 +5,7 @@ The caller passes the boto3 Table in; nothing is created at import time.
 
 from typing import Any
 
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 
 from slackkb.models import Note, NoteStatus, Severity
 
@@ -30,6 +30,32 @@ def get_note(table: Any, note_id: str) -> Note | None:
     if item is None:
         return None
     return Note.model_validate(item)
+
+
+class StoreError(Exception):
+    """A DynamoDB call failed; the message names only the botocore error class."""
+
+
+def delete_if_captured(table: Any, note_id: str) -> bool:
+    """D-015: delete the note only if it exists and its status is CAPTURED.
+
+    True if deleted, False if there is no item or it is in another status
+    (left unchanged). Raises StoreError on any other botocore error.
+    """
+    try:
+        table.delete_item(
+            Key={"note_id": note_id},
+            ConditionExpression="attribute_exists(note_id) AND #status = :captured",
+            ExpressionAttributeNames={"#status": "status"},
+            ExpressionAttributeValues={":captured": NoteStatus.CAPTURED.value},
+        )
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") == "ConditionalCheckFailedException":
+            return False
+        raise StoreError("ClientError") from None
+    except BotoCoreError as exc:
+        raise StoreError(type(exc).__name__) from None
+    return True
 
 
 class NoteNotFoundError(LookupError):
