@@ -18,6 +18,21 @@ from slackkb.store import NoteNotFoundError, get_note, transition_status
 logger = logging.getLogger(__name__)
 
 
+def _remove_object(bucket: Any, note: Note, message_id: str) -> bool:
+    """A FAILED note has no S3 object (D-014). False if the delete failed, so SQS retries."""
+    try:
+        delete_note(bucket, note.team_id, note.note_id)
+    except (ClientError, BotoCoreError) as exc:
+        logger.warning(
+            "blob delete error %s, note_id=%s message_id=%s",
+            type(exc).__name__,
+            note.note_id,
+            message_id,
+        )
+        return False
+    return True
+
+
 def _process(record: Mapping[str, Any], table: Any, bucket: Any) -> bool:
     """Write one record's note to S3, then route it. True on success, including a FAILED note."""
     message_id = record["messageId"]
@@ -30,11 +45,6 @@ def _process(record: Mapping[str, Any], table: Any, bucket: Any) -> bool:
         note = get_note(table, job.note_id)
         if note is None:
             raise NoteNotFoundError(job.note_id)
-        if note.status is NoteStatus.FAILED:
-            logger.info(
-                "note failed, not written, note_id=%s message_id=%s", job.note_id, message_id
-            )
-            return True
     except NoteNotFoundError:
         logger.warning("note not found, note_id=%s message_id=%s", job.note_id, message_id)
         return False
@@ -46,6 +56,11 @@ def _process(record: Mapping[str, Any], table: Any, bucket: Any) -> bool:
             message_id,
         )
         return False
+    if note.status is NoteStatus.FAILED:
+        if not _remove_object(bucket, note, message_id):
+            return False
+        logger.info("note failed, no object, note_id=%s message_id=%s", note.note_id, message_id)
+        return True
     try:
         put_note(bucket, note)
     except (ClientError, BotoCoreError) as exc:
@@ -103,15 +118,7 @@ def _resolve_lost_race(table: Any, bucket: Any, note: Note, message_id: str) -> 
         )
         return True
     if current.status is NoteStatus.FAILED:
-        try:
-            delete_note(bucket, note.team_id, note.note_id)
-        except (ClientError, BotoCoreError) as exc:
-            logger.warning(
-                "blob delete error %s, note_id=%s message_id=%s",
-                type(exc).__name__,
-                note.note_id,
-                message_id,
-            )
+        if not _remove_object(bucket, note, message_id):
             return False
         logger.warning(
             "note failed while writing, object removed, note_id=%s message_id=%s",

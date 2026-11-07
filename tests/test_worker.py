@@ -324,7 +324,7 @@ def test_worker_logs_failed_note_not_written(notes_table, notes_bucket, caplog):
     assert _run(notes_table, notes_bucket, caplog) == {"batchItemFailures": []}
     (rec,) = _worker_records(caplog, logging.INFO)
     msg = rec.getMessage()
-    assert "note failed, not written" in msg and "a" * 32 in msg and "m1" in msg
+    assert "note failed, no object" in msg and "a" * 32 in msg and "m1" in msg
     assert _worker_records(caplog, logging.WARNING) == []
     assert _keys(notes_bucket) == []
 
@@ -480,6 +480,62 @@ def test_worker_lost_race_still_captured_is_batch_failure(
     assert _failures(resp) == ["m-cap"]
     (rec,) = _worker_records(caplog, logging.WARNING)
     assert note_id in rec.getMessage()
+
+
+def test_worker_failed_note_deletes_object(notes_table, notes_bucket, monkeypatch):
+    note_id = "a" * 32
+    _put(notes_table, note_id, status=NoteStatus.FAILED)
+    calls = []
+    real = worker.delete_note
+    monkeypatch.setattr(worker, "delete_note", lambda *a: (calls.append(a), real(*a))[1])
+    assert worker.handle(_event(note_id), table=notes_table, bucket=notes_bucket) == {
+        "batchItemFailures": []
+    }
+    assert calls == [(notes_bucket, TEAM_ID, note_id)]
+
+
+@pytest.mark.parametrize("kind", ["client_error", "botocore_error"])
+def test_worker_failed_note_delete_failure_retries_then_removes(
+    notes_table, notes_bucket, caplog, kind
+):
+    note_id = "a" * 32
+    _put(notes_table, note_id, status=NoteStatus.FAILED)
+    blob.put_note(
+        notes_bucket,
+        Note(note_id=note_id, team_id=TEAM_ID, channel_id="C1", user_id="U1", text="t"),
+    )
+    if kind == "client_error":
+        exc = ClientError({"Error": {"Code": "AccessDenied"}}, "DeleteObject")
+    else:
+        exc = EndpointConnectionError(endpoint_url="https://s3.invalid")
+    first = _run(notes_table, _DeleteFailingBucket(notes_bucket, exc), caplog, message_id="m-d1")
+    assert _failures(first) == ["m-d1"]
+    assert _keys(notes_bucket) == [f"notes/{TEAM_ID}/{note_id}.md"]
+    (rec,) = _worker_records(caplog, logging.WARNING)
+    msg = rec.getMessage()
+    assert type(exc).__name__ in msg and note_id in msg and "m-d1" in msg
+    caplog.clear()
+    second = _run(notes_table, notes_bucket, caplog, message_id="m-d2")
+    assert second == {"batchItemFailures": []}
+    assert _keys(notes_bucket) == []
+    assert get_note(notes_table, note_id).status is NoteStatus.FAILED
+    (info,) = _worker_records(caplog, logging.INFO)
+    assert "note failed, no object" in info.getMessage()
+
+
+def test_worker_lost_race_still_captured_warns_and_retries(
+    notes_table, notes_bucket, caplog, monkeypatch
+):
+    note_id = "a" * 32
+    _put(notes_table, note_id)
+    still_captured = Note(note_id=note_id, team_id=TEAM_ID, channel_id="C1", user_id="U1", text="t")
+    _lost_race(monkeypatch, still_captured)
+    resp = _run(notes_table, notes_bucket, caplog, message_id="m-cap2")
+    assert _failures(resp) == ["m-cap2"]
+    (rec,) = _worker_records(caplog, logging.WARNING)
+    msg = rec.getMessage()
+    assert "after lost race" in msg and "CAPTURED" in msg and note_id in msg and "m-cap2" in msg
+    assert _worker_records(caplog, logging.INFO) == []
 
 
 def test_worker_logs_never_contain_secrets(notes_table, notes_bucket, caplog, monkeypatch):
