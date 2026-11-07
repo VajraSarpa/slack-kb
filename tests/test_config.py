@@ -1,5 +1,5 @@
 import pytest
-from conftest import BOT_TOKEN, NOTES_TABLE, SIGNING_SECRET
+from conftest import BOT_TOKEN, NOTES_BUCKET, NOTES_TABLE, SIGNING_SECRET
 from pydantic import SecretStr, ValidationError
 
 from slackkb.config import Settings
@@ -28,6 +28,16 @@ def test_missing_signing_secret_fails(monkeypatch):
 
 def test_missing_notes_table_fails(monkeypatch):
     monkeypatch.delenv("SLACKKB_NOTES_TABLE")
+    with pytest.raises(ValidationError):
+        Settings()
+
+
+def test_reads_notes_bucket():
+    assert Settings().notes_bucket == NOTES_BUCKET
+
+
+def test_missing_notes_bucket_fails(monkeypatch):
+    monkeypatch.delenv("SLACKKB_NOTES_BUCKET")
     with pytest.raises(ValidationError):
         Settings()
 
