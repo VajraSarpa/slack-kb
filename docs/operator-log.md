@@ -211,3 +211,10 @@ Logged after the fact; times approximate (local).
 - reviewer minor reproduced: `created_at: 2026-13-45` → bare `ValueError('month must be in 1..12')`; an unquoted valid date → `OkfNoteError`. Opus claim c5 (why m9 survived) checked by reading `from_markdown`: true. [manual verification]
 - my own diff-read notes (minor, not blocking): `blob.get_note` rebuilds the key by hand instead of a shared helper; reviewer minor above. [judgment]
 - not applied yet: Vajra reads the diff, commits these records, then `prama apply personal_150f0a7c`. [deferred to Vajra]
+
+## 2026-11-06 — S4 apply, then "nothing fails quietly" through Pramā (Claude ran both)
+- Vajra 2026-11-06: "make the changes that will work with the system as a whole. nothing fails quietly and everything is logged … test it. Then merge and push." Authority for Claude to apply, commit and push this round. [Vajra decision]
+- 22:33 my apply command from the previous turn had `--profile`; `prama apply` has no such option (error, nothing done). My mistake; reran without it. [operator error]
+- 22:33 `echo y | prama apply personal_150f0a7c`: apply review PASS + the same minor (bad YAML date → bare ValueError; also `0x_`), merged `0255d6a`; main 142 passed + ruff clean (rerun by Claude). Record `docs/runs/s4-apply.md` (`dada003`). [observed; manual verification]
+- quiet paths listed from the code before writing the prompt: worker ignores `transition_status`'s False; FAILED skip, all capture/modal 401/400 and button/submit rejections, `delete_if_captured` False, and every success path log nothing. [manual verification]
+- judgment calls in `prompts/fix-no-quiet-failures.md` (`4011677`): user-facing replies unchanged (a message on button failure is an app decision for Vajra); status changed mid-write → re-read: ROUTED keep the object (concurrent at-least-once delivery), FAILED delete it (D-014) and retry if the delete fails; INFO for successes/expected no-ops, WARNING otherwise; no log config (Lambda's default level may drop INFO; belongs with entry points/Slice 9). [judgment]
