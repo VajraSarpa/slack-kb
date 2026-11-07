@@ -72,16 +72,27 @@ def handle(
     try:
         body = _raw_body(event)
         verify(headers, body, settings.signing_secret.get_secret_value(), now)
-    except (SignatureError, binascii.Error, UnicodeDecodeError):
+    except SignatureError as exc:
+        logger.warning("capture rejected, reason=%s", exc)
+        return _response(401, "unauthorized", "text/plain")
+    except (binascii.Error, UnicodeDecodeError):
+        logger.warning("capture rejected, reason=bad body encoding")
         return _response(401, "unauthorized", "text/plain")
 
     fields = dict(urllib.parse.parse_qsl(body, keep_blank_values=True))
     try:
         request = CaptureRequest.model_validate(fields)
-    except ValidationError:
+    except ValidationError as exc:
+        invalid = sorted({".".join(str(part) for part in e["loc"]) for e in exc.errors()})
+        logger.warning("capture bad request, invalid_fields=%s", ",".join(invalid))
         return _response(400, "bad request", "text/plain")
 
     if not request.text.strip():
+        logger.info(
+            "empty capture, usage reply sent, team_id=%s user_id=%s",
+            request.team_id,
+            request.user_id,
+        )
         return _ephemeral(USAGE_TEXT)
 
     note = Note(
@@ -92,14 +103,19 @@ def handle(
         text=request.text,
     )
     if not put_if_absent(table, note):
+        logger.info("duplicate capture, note_id=%s", note.note_id)
         return _ack(note.note_id)
     try:
         send_capture_job(sqs, settings.capture_queue_url, CaptureJob(note_id=note.note_id))
     except EnqueueError as exc:
         logger.warning("enqueue failed (%s), note_id=%s", exc, note.note_id)
         try:
-            delete_if_captured(table, note.note_id)
+            deleted = delete_if_captured(table, note.note_id)
         except StoreError as delete_exc:
             logger.warning("note delete failed (%s), note_id=%s", delete_exc, note.note_id)
+        else:
+            if not deleted:
+                logger.warning("note not deleted, not captured or gone, note_id=%s", note.note_id)
         return _ephemeral(RETRY_TEXT)
+    logger.info("note captured, note_id=%s", note.note_id)
     return _ack(note.note_id)

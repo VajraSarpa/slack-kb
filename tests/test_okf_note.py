@@ -118,6 +118,19 @@ def test_malformed_markdown_raises(md, reason):
         from_markdown(md)
 
 
+@pytest.mark.parametrize(
+    "line",
+    ["created_at: 2026-13-45", "note_id: 0x_"],
+)
+def test_yaml_value_errors_become_okf_note_error(line):
+    key = line.split(":")[0]
+    head = "".join(
+        (line if row.startswith(key + ":") else row) + "\n" for row in VALID_HEAD.splitlines()
+    )
+    with pytest.raises(OkfNoteError):
+        from_markdown("---\n" + head + "---\nbody")
+
+
 def test_okf_note_error_is_value_error():
     assert issubclass(OkfNoteError, ValueError)
 

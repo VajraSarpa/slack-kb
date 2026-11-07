@@ -35,6 +35,34 @@ def test_get_other_s3_errors_propagate(aws):
         blob.get_note(missing_bucket, "T1", "a" * 32)
 
 
+def test_delete_removes_object(notes_bucket):
+    blob.put_note(notes_bucket, _note())
+    assert blob.delete_note(notes_bucket, "T1", "a" * 32) is None
+    assert blob.get_note(notes_bucket, "T1", "a" * 32) is None
+    assert list(notes_bucket.objects.all()) == []
+
+
+def test_delete_missing_key_is_fine(notes_bucket):
+    assert blob.delete_note(notes_bucket, "T1", "z" * 32) is None
+
+
+def test_delete_other_s3_errors_propagate(aws):
+    import boto3
+
+    missing_bucket = boto3.resource("s3").Bucket("no-such-bucket")
+    with pytest.raises(ClientError):
+        blob.delete_note(missing_bucket, "T1", "a" * 32)
+
+
+def test_put_get_delete_share_one_key_helper(notes_bucket, monkeypatch):
+    monkeypatch.setattr(blob, "_key", lambda team_id, note_id: "elsewhere/x.md")
+    blob.put_note(notes_bucket, _note())
+    assert [o.key for o in notes_bucket.objects.all()] == ["elsewhere/x.md"]
+    assert blob.get_note(notes_bucket, "T1", "a" * 32) is not None
+    blob.delete_note(notes_bucket, "T1", "a" * 32)
+    assert list(notes_bucket.objects.all()) == []
+
+
 def test_put_overwrites(notes_bucket):
     blob.put_note(notes_bucket, _note("first"))
     blob.put_note(notes_bucket, _note("second"))

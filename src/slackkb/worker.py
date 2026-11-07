@@ -11,8 +11,8 @@ from typing import Any
 from botocore.exceptions import BotoCoreError, ClientError
 from pydantic import ValidationError
 
-from slackkb.blob import put_note
-from slackkb.models import CaptureJob, NoteStatus
+from slackkb.blob import delete_note, put_note
+from slackkb.models import CaptureJob, Note, NoteStatus
 from slackkb.store import NoteNotFoundError, get_note, transition_status
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,9 @@ def _process(record: Mapping[str, Any], table: Any, bucket: Any) -> bool:
         if note is None:
             raise NoteNotFoundError(job.note_id)
         if note.status is NoteStatus.FAILED:
+            logger.info(
+                "note failed, not written, note_id=%s message_id=%s", job.note_id, message_id
+            )
             return True
     except NoteNotFoundError:
         logger.warning("note not found, note_id=%s message_id=%s", job.note_id, message_id)
@@ -54,7 +57,7 @@ def _process(record: Mapping[str, Any], table: Any, bucket: Any) -> bool:
         )
         return False
     try:
-        transition_status(table, job.note_id, NoteStatus.ROUTED)
+        routed = transition_status(table, job.note_id, NoteStatus.ROUTED)
     except NoteNotFoundError:
         logger.warning("note not found, note_id=%s message_id=%s", job.note_id, message_id)
         return False
@@ -66,7 +69,63 @@ def _process(record: Mapping[str, Any], table: Any, bucket: Any) -> bool:
             message_id,
         )
         return False
-    return True
+    if routed:
+        logger.info("note routed, note_id=%s message_id=%s", job.note_id, message_id)
+        return True
+    if note.status is NoteStatus.ROUTED:
+        logger.info(
+            "note already routed, rewritten, note_id=%s message_id=%s", job.note_id, message_id
+        )
+        return True
+    return _resolve_lost_race(table, bucket, note, message_id)
+
+
+def _resolve_lost_race(table: Any, bucket: Any, note: Note, message_id: str) -> bool:
+    """The status changed while the object was being written: settle it from the stored status."""
+    try:
+        current = get_note(table, note.note_id)
+    except (ClientError, BotoCoreError) as exc:
+        logger.warning(
+            "store error %s on re-read, note_id=%s message_id=%s",
+            type(exc).__name__,
+            note.note_id,
+            message_id,
+        )
+        return False
+    if current is None:
+        logger.warning(
+            "note gone after write, note_id=%s message_id=%s", note.note_id, message_id
+        )
+        return False
+    if current.status is NoteStatus.ROUTED:
+        logger.info(
+            "note routed by another delivery, note_id=%s message_id=%s", note.note_id, message_id
+        )
+        return True
+    if current.status is NoteStatus.FAILED:
+        try:
+            delete_note(bucket, note.team_id, note.note_id)
+        except (ClientError, BotoCoreError) as exc:
+            logger.warning(
+                "blob delete error %s, note_id=%s message_id=%s",
+                type(exc).__name__,
+                note.note_id,
+                message_id,
+            )
+            return False
+        logger.warning(
+            "note failed while writing, object removed, note_id=%s message_id=%s",
+            note.note_id,
+            message_id,
+        )
+        return True
+    logger.warning(
+        "note status %s after lost race, note_id=%s message_id=%s",
+        current.status.value,
+        note.note_id,
+        message_id,
+    )
+    return False
 
 
 def handle(event: Mapping[str, Any], *, table: Any, bucket: Any) -> dict:

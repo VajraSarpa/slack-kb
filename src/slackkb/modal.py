@@ -87,25 +87,43 @@ def _view(note_id: str, current: Severity) -> dict[str, Any]:
 def _block_actions(payload: Mapping[str, Any], table: Any, slack: SlackClient) -> dict[str, Any]:
     actions = payload.get("actions")
     action = actions[0] if isinstance(actions, list) and actions else None
-    if _get(action, "action_id") != ACTION_ID:
+    action_id = _get(action, "action_id")
+    if action_id != ACTION_ID:
+        logger.warning("block action ignored, wrong action_id=%s", action_id)
         return _empty()
     note_id = _get(action, "value")
     trigger_id = payload.get("trigger_id")
     team_id = _get(payload, "team", "id")
-    if not isinstance(note_id, str) or not isinstance(trigger_id, str) or not note_id:
+    if not isinstance(note_id, str) or not note_id:
+        logger.warning("block action ignored, missing note_id")
+        return _empty()
+    if not isinstance(trigger_id, str):
+        logger.warning("block action ignored, missing trigger_id, note_id=%s", note_id)
         return _empty()
     note = get_note(table, note_id)
-    if note is None or team_id is None or note.team_id != team_id:
+    if note is None:
+        logger.warning("block action ignored, note not found, note_id=%s", note_id)
+        return _empty()
+    if team_id is None or note.team_id != team_id:
+        logger.warning(
+            "block action ignored, team mismatch, note_id=%s note_team_id=%s request_team_id=%s",
+            note_id,
+            note.team_id,
+            team_id,
+        )
         return _empty()
     try:
         slack.views_open(trigger_id, _view(note.note_id, note.severity))
     except SlackApiError as exc:
         logger.warning("views.open failed (%s), note_id=%s", exc, note.note_id)
+        return _empty()
+    logger.info("views.open sent, note_id=%s", note.note_id)
     return _empty()
 
 
 def _view_submission(payload: Mapping[str, Any], table: Any) -> dict[str, Any]:
     if _get(payload, "view", "callback_id") != CALLBACK_ID:
+        logger.warning("modal rejected, reason=wrong callback_id")
         return _response(400, "bad request")
     note_id = _get(payload, "view", "private_metadata")
     value = _get(
@@ -114,17 +132,30 @@ def _view_submission(payload: Mapping[str, Any], table: Any) -> dict[str, Any]:
     try:
         severity = Severity(value)
     except ValueError:
+        logger.warning("submission rejected, invalid severity")
         return _errors(BAD_SEVERITY_TEXT)
     if not isinstance(note_id, str) or not note_id:
+        logger.warning("submission rejected, missing note_id")
         return _errors(NOT_FOUND_TEXT)
     note = get_note(table, note_id)
     team_id = _get(payload, "team", "id")
-    if note is None or team_id is None or note.team_id != team_id:
+    if note is None:
+        logger.warning("submission rejected, note not found, note_id=%s", note_id)
+        return _errors(NOT_FOUND_TEXT)
+    if team_id is None or note.team_id != team_id:
+        logger.warning(
+            "submission rejected, team mismatch, note_id=%s note_team_id=%s request_team_id=%s",
+            note_id,
+            note.team_id,
+            team_id,
+        )
         return _errors(NOT_FOUND_TEXT)
     try:
         set_severity(table, note_id, severity)
     except NoteNotFoundError:
+        logger.warning("submission rejected, note vanished, note_id=%s", note_id)
         return _errors(NOT_FOUND_TEXT)
+    logger.info("severity set, note_id=%s severity=%s", note_id, severity.value)
     return _empty()
 
 
@@ -136,15 +167,24 @@ def handle(
     try:
         body = _raw_body(event)
         verify(headers, body, settings.signing_secret.get_secret_value(), now)
-    except (SignatureError, binascii.Error, UnicodeDecodeError):
+    except SignatureError as exc:
+        logger.warning("modal rejected, reason=%s", exc)
+        return _response(401, "unauthorized")
+    except (binascii.Error, UnicodeDecodeError):
+        logger.warning("modal rejected, reason=bad body encoding")
         return _response(401, "unauthorized")
 
     fields = dict(urllib.parse.parse_qsl(body, keep_blank_values=True))
     try:
         payload = json.loads(fields["payload"])
-    except (KeyError, ValueError):
+    except KeyError:
+        logger.warning("modal rejected, reason=no payload")
+        return _response(400, "bad request")
+    except ValueError:
+        logger.warning("modal rejected, reason=bad payload")
         return _response(400, "bad request")
     if not isinstance(payload, dict):
+        logger.warning("modal rejected, reason=bad payload")
         return _response(400, "bad request")
 
     kind = payload.get("type")
@@ -152,4 +192,5 @@ def handle(
         return _block_actions(payload, table, slack)
     if kind == "view_submission":
         return _view_submission(payload, table)
+    logger.warning("modal rejected, reason=unknown type")
     return _response(400, "bad request")
