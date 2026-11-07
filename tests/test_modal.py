@@ -548,7 +548,7 @@ def test_logs_never_contain_secrets(
         _event(_metadata(MISSING_NOTE_ID)),
         _event(_other_callback()),
         _event(_team("view_submission", "T999OTHER")),
-        _event({"type": "shortcut"}),
+        _event({"type": "shortcut", "response_url": RESPONSE_URL}),
         _signed_with(secret="wrong"),
         _signed_with(b64="!!not base64!!"),
         _signed("foo=bar"),
