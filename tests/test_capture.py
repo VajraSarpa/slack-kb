@@ -2,16 +2,19 @@ import ast
 import base64
 import hashlib
 import json
+import logging
 import time
+import urllib.parse
 from pathlib import Path
 
 import boto3
 import pytest
-from conftest import SIGNING_SECRET
+from conftest import BOT_TOKEN, SIGNING_SECRET, sign
 
+from slackkb import capture
 from slackkb.capture import handle
 from slackkb.config import Settings
-from slackkb.store import get_note
+from slackkb.store import StoreError, get_note
 
 CAPTURE_SRC = Path(__file__).parent.parent / "src" / "slackkb" / "capture.py"
 TEAM_ID = "T000TEST"
@@ -137,6 +140,164 @@ def test_ack_is_ephemeral_200(slack_request, notes_table, capture_queue):
     body = json.loads(resp["body"])
     assert body["response_type"] == "ephemeral"
     assert isinstance(body["text"], str) and body["text"]
+
+
+NOTE_TEXT = "db connection timeouts on /api/orders since 14:05"
+RESPONSE_URL = "https://hooks.slack.invalid/commands/T000TEST/1/abc"
+SHORT_TEXT = "short note"
+
+
+def _records(caplog, level):
+    return [r for r in caplog.records if r.name == "slackkb.capture" and r.levelno == level]
+
+
+def _only_message(caplog, level):
+    """The module's single log record, which must be at `level`."""
+    records = [r for r in caplog.records if r.name == "slackkb.capture"]
+    assert [r.levelno for r in records] == [level]
+    return records[0].getMessage()
+
+
+def _signed_body(fields):
+    body = urllib.parse.urlencode(fields)
+    ts = int(time.time())
+    return {
+        "headers": {"X-Slack-Request-Timestamp": str(ts), "X-Slack-Signature": sign(body, ts)},
+        "body": body,
+        "isBase64Encoded": False,
+    }
+
+
+def _run(event, table, caplog, sqs=None):
+    sqs = boto3.client("sqs") if sqs is None else sqs
+    # Only our loggers at DEBUG; botocore's DEBUG output echoes request params.
+    with caplog.at_level(logging.DEBUG, logger="slackkb"):
+        return handle(event, table=table, sqs=sqs, settings=Settings(), now=int(time.time()))
+
+
+def _bad_base64(slack_request):
+    event = slack_request()
+    event["body"] = "!!not base64!!"
+    event["isBase64Encoded"] = True
+    return event
+
+
+def _bad_utf8(slack_request):
+    event = slack_request()
+    event["body"] = base64.b64encode(b"\xff\xfe").decode()
+    event["isBase64Encoded"] = True
+    return event
+
+
+@pytest.mark.parametrize(
+    ("make", "reason"),
+    [
+        (lambda r: r(secret="wrong"), "signature mismatch"),
+        (lambda r: r(drop=("X-Slack-Signature",)), "missing signature header"),
+        (lambda r: r(drop=("X-Slack-Request-Timestamp",)), "missing timestamp header"),
+        (lambda r: r(ts=1), "timestamp outside allowed window"),
+        (_bad_base64, "bad body encoding"),
+        (_bad_utf8, "bad body encoding"),
+    ],
+)
+def test_logs_401_reason(slack_request, notes_table, capture_queue, caplog, make, reason):
+    resp = _run(make(slack_request), notes_table, caplog)
+    assert resp["statusCode"] == 401
+    msg = _only_message(caplog, logging.WARNING)
+    assert "capture rejected" in msg and reason in msg
+
+
+@pytest.mark.parametrize(
+    ("drop", "names"),
+    [(("team_id",), {"team_id"}), (("trigger_id", "user_id"), {"trigger_id", "user_id"})],
+)
+def test_logs_400_field_names_only(notes_table, capture_queue, caplog, drop, names):
+    fields = json.loads((Path(__file__).parent / "fixtures" / "slash_bnote.json").read_text())
+    for name in drop:
+        del fields[name]
+    resp = _run(_signed_body(fields), notes_table, caplog)
+    assert resp["statusCode"] == 400
+    msg = _only_message(caplog, logging.WARNING)
+    assert all(name in msg for name in names)
+    for value in (NOTE_TEXT, "C000TEST", "U000TEST", TEAM_ID, TRIGGER_ID):
+        assert value not in msg
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("empty_text", ("usage", TEAM_ID, "U000TEST")),
+        ("captured", ("note captured", EXPECTED_NOTE_ID)),
+        ("duplicate", ("duplicate capture", EXPECTED_NOTE_ID)),
+    ],
+    ids=lambda v: v if isinstance(v, str) else "",
+)
+def test_logs_accepted_paths(slack_request, notes_table, capture_queue, caplog, path, expected):
+    if path == "duplicate":
+        _run(slack_request(), notes_table, caplog)
+        caplog.clear()
+    event = slack_request(text="  ") if path == "empty_text" else slack_request()
+    assert _run(event, notes_table, caplog)["statusCode"] == 200
+    msg = _only_message(caplog, logging.INFO)
+    assert all(value in msg for value in expected)
+
+
+def test_logs_note_not_deleted_after_failed_enqueue(
+    slack_request, notes_table, capture_queue, caplog, monkeypatch
+):
+    monkeypatch.setattr(capture, "delete_if_captured", lambda table, note_id: False)
+    sqs = boto3.client("sqs")
+    sqs.delete_queue(QueueUrl=capture_queue.url)
+    resp = _run(slack_request(), notes_table, caplog, sqs=sqs)
+    assert json.loads(resp["body"])["text"] == capture.RETRY_TEXT
+    msgs = [r.getMessage() for r in _records(caplog, logging.WARNING)]
+    matching = [m for m in msgs if "note not deleted, not captured or gone" in m]
+    assert len(matching) == 1 and EXPECTED_NOTE_ID in matching[0]
+
+
+def _with_trigger(slack_request, trigger_id):
+    event = slack_request()
+    event["body"] = event["body"].replace(TRIGGER_ID, trigger_id)
+    event["headers"]["X-Slack-Signature"] = sign(
+        event["body"], int(event["headers"]["X-Slack-Request-Timestamp"])
+    )
+    return event
+
+
+def test_logs_never_contain_secrets(slack_request, notes_table, capture_queue, caplog, monkeypatch):
+    events = [
+        slack_request(),
+        slack_request(retry=1),
+        slack_request(text=" "),
+        slack_request(secret="wrong"),
+        _bad_base64(slack_request),
+        # Short, because pydantic truncates long input values in its error messages.
+        _signed_body({"text": SHORT_TEXT}),
+    ]
+    for event in events:
+        _run(event, notes_table, caplog)
+    sqs = boto3.client("sqs")
+    sqs.delete_queue(QueueUrl=capture_queue.url)
+
+    def boom(table, note_id):
+        raise StoreError("ClientError")
+
+    failed_enqueues = [
+        (None, _with_trigger(slack_request, "9999.0001.a")),
+        (lambda table, note_id: False, _with_trigger(slack_request, "9999.0002.b")),
+        (boom, _with_trigger(slack_request, "9999.0003.c")),
+    ]
+    for delete, event in failed_enqueues:
+        if delete is not None:
+            monkeypatch.setattr(capture, "delete_if_captured", delete)
+        _run(event, notes_table, caplog, sqs=sqs)
+        events.append(event)
+    assert caplog.text
+    for value in (NOTE_TEXT, SHORT_TEXT, SIGNING_SECRET, BOT_TOKEN, RESPONSE_URL, "response_url"):
+        assert value not in caplog.text
+    for event in events:
+        assert event["body"] not in caplog.text
+        assert event["headers"]["X-Slack-Signature"] not in caplog.text
 
 
 def _imported_modules(tree):

@@ -8,7 +8,7 @@ from pathlib import Path
 import boto3
 import pytest
 from botocore.exceptions import ClientError, EndpointConnectionError
-from conftest import SIGNING_SECRET
+from conftest import BOT_TOKEN, SIGNING_SECRET, sign
 
 from slackkb import blob, capture, worker
 from slackkb.config import Settings
@@ -306,6 +306,251 @@ def test_worker_redelivery_rewrites_routed_note(notes_table, notes_bucket):
     assert _keys(notes_bucket) == [f"notes/{TEAM_ID}/{note_id}.md"]
     assert blob.get_note(notes_bucket, TEAM_ID, note_id) is not None
     assert get_note(notes_table, note_id).status is NoteStatus.ROUTED
+
+
+def _worker_records(caplog, level):
+    return [
+        r for r in caplog.records if r.name == "slackkb.worker" and r.levelno == level
+    ]
+
+
+def _run(notes_table, bucket, caplog, note_id="a" * 32, message_id="m1"):
+    with caplog.at_level(logging.DEBUG, logger="slackkb"):
+        return worker.handle(_event(note_id, message_id), table=notes_table, bucket=bucket)
+
+
+def test_worker_logs_failed_note_not_written(notes_table, notes_bucket, caplog):
+    _put(notes_table, "a" * 32, status=NoteStatus.FAILED)
+    assert _run(notes_table, notes_bucket, caplog) == {"batchItemFailures": []}
+    (rec,) = _worker_records(caplog, logging.INFO)
+    msg = rec.getMessage()
+    assert "note failed, not written" in msg and "a" * 32 in msg and "m1" in msg
+    assert _worker_records(caplog, logging.WARNING) == []
+    assert _keys(notes_bucket) == []
+
+
+def test_worker_logs_note_routed(notes_table, notes_bucket, caplog):
+    _put(notes_table, "a" * 32)
+    assert _run(notes_table, notes_bucket, caplog) == {"batchItemFailures": []}
+    (rec,) = _worker_records(caplog, logging.INFO)
+    msg = rec.getMessage()
+    assert "note routed" in msg and "a" * 32 in msg and "m1" in msg
+    assert _worker_records(caplog, logging.WARNING) == []
+
+
+def test_worker_logs_redelivery_rewritten(notes_table, notes_bucket, caplog):
+    _put(notes_table, "a" * 32, status=NoteStatus.ROUTED)
+    assert _run(notes_table, notes_bucket, caplog) == {"batchItemFailures": []}
+    (rec,) = _worker_records(caplog, logging.INFO)
+    msg = rec.getMessage()
+    assert "note already routed, rewritten" in msg and "a" * 32 in msg and "m1" in msg
+    assert _worker_records(caplog, logging.WARNING) == []
+    assert _keys(notes_bucket) == [f"notes/{TEAM_ID}/{'a' * 32}.md"]
+
+
+class _RaceTable:
+    """Passes through to a real table, but flips the status just before the first update."""
+
+    def __init__(self, table, new_status):
+        self.table = table
+        self.new_status = new_status
+
+    def update_item(self, **kwargs):
+        if self.new_status is not None:
+            self.table.update_item(
+                Key=kwargs["Key"],
+                UpdateExpression="SET #status = :s",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={":s": self.new_status.value},
+            )
+            self.new_status = None
+        return self.table.update_item(**kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self.table, name)
+
+
+def test_worker_lost_race_to_routed_keeps_object(notes_table, notes_bucket, caplog):
+    note_id = "a" * 32
+    _put(notes_table, note_id)
+    table = _RaceTable(notes_table, NoteStatus.ROUTED)
+    assert _run(table, notes_bucket, caplog) == {"batchItemFailures": []}
+    assert _keys(notes_bucket) == [f"notes/{TEAM_ID}/{note_id}.md"]
+    (rec,) = _worker_records(caplog, logging.INFO)
+    assert note_id in rec.getMessage() and "m1" in rec.getMessage()
+    assert _worker_records(caplog, logging.WARNING) == []
+
+
+def test_worker_lost_race_to_failed_removes_object(notes_table, notes_bucket, caplog):
+    note_id = "a" * 32
+    _put(notes_table, note_id)
+    table = _RaceTable(notes_table, NoteStatus.FAILED)
+    assert _run(table, notes_bucket, caplog) == {"batchItemFailures": []}
+    assert _keys(notes_bucket) == []
+    assert get_note(notes_table, note_id).status is NoteStatus.FAILED
+    (rec,) = _worker_records(caplog, logging.WARNING)
+    msg = rec.getMessage()
+    assert note_id in msg and "m1" in msg and "removed" in msg
+
+
+class _DeleteFailingBucket:
+    def __init__(self, bucket, exc):
+        self.bucket = bucket
+        self.exc = exc
+
+    def Object(self, key):  # noqa: N802 - boto3 resource API
+        obj = self.bucket.Object(key)
+        exc = self.exc
+
+        class _Obj:
+            def put(self, **kwargs):
+                return obj.put(**kwargs)
+
+            def delete(self, **kwargs):
+                raise exc
+
+        return _Obj()
+
+
+@pytest.mark.parametrize("kind", ["client_error", "botocore_error"])
+def test_worker_lost_race_to_failed_delete_failure_retries(
+    notes_table, notes_bucket, caplog, kind
+):
+    note_id = "a" * 32
+    _put(notes_table, note_id)
+    if kind == "client_error":
+        exc = ClientError({"Error": {"Code": "AccessDenied"}}, "DeleteObject")
+    else:
+        exc = EndpointConnectionError(endpoint_url="https://s3.invalid")
+    table = _RaceTable(notes_table, NoteStatus.FAILED)
+    resp = _run(table, _DeleteFailingBucket(notes_bucket, exc), caplog, message_id="m-del")
+    assert _failures(resp) == ["m-del"]
+    assert _keys(notes_bucket) == [f"notes/{TEAM_ID}/{note_id}.md"]
+    (rec,) = _worker_records(caplog, logging.WARNING)
+    msg = rec.getMessage()
+    assert type(exc).__name__ in msg and note_id in msg and "m-del" in msg
+
+
+def _lost_race(monkeypatch, second):
+    """transition_status reports a lost race; the re-read returns `second` (or raises it)."""
+    real = worker.get_note
+    calls = []
+
+    def fake_get(table, note_id):
+        calls.append(note_id)
+        if len(calls) == 1:
+            return real(table, note_id)
+        if isinstance(second, Exception):
+            raise second
+        return second
+
+    monkeypatch.setattr(worker, "get_note", fake_get)
+    monkeypatch.setattr(worker, "transition_status", lambda table, note_id, to: False)
+
+
+@pytest.mark.parametrize(
+    "second",
+    [
+        None,
+        EndpointConnectionError(endpoint_url="https://dynamodb.invalid"),
+        ClientError({"Error": {"Code": "Throttled"}}, "GetItem"),
+    ],
+    ids=["gone", "botocore_error", "client_error"],
+)
+def test_worker_lost_race_reread_unusable_is_batch_failure(
+    notes_table, notes_bucket, caplog, monkeypatch, second
+):
+    note_id = "a" * 32
+    _put(notes_table, note_id)
+    _lost_race(monkeypatch, second)
+    resp = _run(notes_table, notes_bucket, caplog, message_id="m-re")
+    assert _failures(resp) == ["m-re"]
+    (rec,) = _worker_records(caplog, logging.WARNING)
+    assert note_id in rec.getMessage() and "m-re" in rec.getMessage()
+
+
+def test_worker_lost_race_still_captured_is_batch_failure(
+    notes_table, notes_bucket, caplog, monkeypatch
+):
+    note_id = "a" * 32
+    _put(notes_table, note_id)
+    still_captured = Note(note_id=note_id, team_id=TEAM_ID, channel_id="C1", user_id="U1", text="t")
+    _lost_race(monkeypatch, still_captured)
+    resp = _run(notes_table, notes_bucket, caplog, message_id="m-cap")
+    assert _failures(resp) == ["m-cap"]
+    (rec,) = _worker_records(caplog, logging.WARNING)
+    assert note_id in rec.getMessage()
+
+
+def test_worker_logs_never_contain_secrets(notes_table, notes_bucket, caplog, monkeypatch):
+    signature = sign(NOTE_TEXT, 1)
+    raw_body = json.dumps(
+        {
+            "text": NOTE_TEXT,
+            "signing_secret": SIGNING_SECRET,
+            "bot_token": BOT_TOKEN,
+            "signature": signature,
+            "response_url": RESPONSE_URL,
+        }
+    )
+    # str(ClientError) carries the service's message, so logging the exception would leak these.
+    leaky = ClientError(
+        {"Error": {"Code": "AccessDenied", "Message": f"{NOTE_TEXT} {RESPONSE_URL}"}}, "Op"
+    )
+
+    def raises(*args, **kwargs):
+        raise leaky
+
+    def put(fill, status=NoteStatus.CAPTURED):
+        note_id = fill * 32
+        note = Note(
+            note_id=note_id,
+            team_id=TEAM_ID,
+            channel_id="C1",
+            user_id="U1",
+            text=NOTE_TEXT,
+            status=status,
+        )
+        assert put_if_absent(notes_table, note)
+        return note_id
+
+    delete_fails = _DeleteFailingBucket(notes_bucket, leaky)
+    seen = []
+
+    def run(note_id, table=notes_table, bucket=notes_bucket):
+        seen.append(note_id)
+        _run(table, bucket, caplog, note_id=note_id, message_id=f"m-{note_id[0]}")
+
+    with caplog.at_level(logging.DEBUG, logger="slackkb"):
+        worker.handle(
+            {"Records": [_record("m-bad", raw_body)]}, table=notes_table, bucket=notes_bucket
+        )
+    run(put("0"))
+    run(put("1", NoteStatus.FAILED))
+    run(put("2", NoteStatus.ROUTED))
+    run("3" * 32)
+    run(put("4"), bucket=_RaisingBucket(leaky))
+    run(put("5"), table=_RaceTable(notes_table, NoteStatus.ROUTED))
+    run(put("6"), table=_RaceTable(notes_table, NoteStatus.FAILED))
+    run(put("7"), table=_RaceTable(notes_table, NoteStatus.FAILED), bucket=delete_fails)
+    with monkeypatch.context() as m:
+        m.setattr(worker, "get_note", raises)
+        run(put("8"))
+    with monkeypatch.context() as m:
+        m.setattr(worker, "transition_status", raises)
+        run(put("9"))
+    with monkeypatch.context() as m:
+        _lost_race(m, None)
+        run(put("a"))
+    with monkeypatch.context() as m:
+        _lost_race(m, leaky)
+        run(put("b"))
+
+    assert "m-bad" in caplog.text
+    assert all(note_id in caplog.text for note_id in seen)
+    for value in (NOTE_TEXT, SIGNING_SECRET, BOT_TOKEN, signature, RESPONSE_URL, raw_body):
+        assert value not in caplog.text
+    assert "response_url" not in caplog.text
 
 
 def _imported_modules(tree):

@@ -66,7 +66,7 @@ def from_markdown(md: str) -> OkfNote:
         head, body = rest[: end + 1], rest[end + 1 + len(DELIMITER) :]
     try:
         data = yaml.safe_load(head)
-    except yaml.YAMLError:
+    except (yaml.YAMLError, ValueError, TypeError):
         raise OkfNoteError("frontmatter is not valid YAML") from None
     if not isinstance(data, dict):
         raise OkfNoteError("frontmatter is not a mapping")
