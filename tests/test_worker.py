@@ -7,13 +7,13 @@ from pathlib import Path
 
 import boto3
 import pytest
-from botocore.exceptions import EndpointConnectionError
+from botocore.exceptions import ClientError, EndpointConnectionError
 from conftest import SIGNING_SECRET
 
-from slackkb import capture, worker
+from slackkb import blob, capture, worker
 from slackkb.config import Settings
 from slackkb.models import CaptureJob, Note, NoteStatus
-from slackkb.store import StoreError, get_note, put_if_absent
+from slackkb.store import NoteNotFoundError, StoreError, get_note, put_if_absent
 
 SRC = Path(__file__).parent.parent / "src" / "slackkb"
 TEAM_ID = "T000TEST"
@@ -127,14 +127,16 @@ def test_failed_delete_after_failed_enqueue_still_returns_retry(
         assert all(secret not in r.getMessage() for r in ours)
 
 
-def test_worker_marks_routed(notes_table):
+def test_worker_marks_routed(notes_table, notes_bucket):
     _put(notes_table, "a" * 32)
-    resp = worker.handle({"Records": [_record("m1", _job("a" * 32))]}, table=notes_table)
+    resp = worker.handle(
+        {"Records": [_record("m1", _job("a" * 32))]}, table=notes_table, bucket=notes_bucket
+    )
     assert resp == {"batchItemFailures": []}
     assert get_note(notes_table, "a" * 32).status is NoteStatus.ROUTED
 
 
-def test_worker_reports_partial_failure(notes_table):
+def test_worker_reports_partial_failure(notes_table, notes_bucket):
     _put(notes_table, "a" * 32)
     event = {
         "Records": [
@@ -144,7 +146,7 @@ def test_worker_reports_partial_failure(notes_table):
             _record("missing-note", _job("b" * 32)),
         ]
     }
-    resp = worker.handle(event, table=notes_table)
+    resp = worker.handle(event, table=notes_table, bucket=notes_bucket)
     assert _failures(resp) == ["missing-note", "not-json", "wrong-shape"]
     assert get_note(notes_table, "a" * 32).status is NoteStatus.ROUTED
     assert get_note(notes_table, "b" * 32) is None
@@ -159,30 +161,151 @@ class _BrokenTable:
 
 
 @pytest.mark.parametrize("kind", ["client_error", "botocore_error"])
-def test_worker_reports_store_error(aws, kind):
+def test_worker_reports_store_error(aws, notes_bucket, kind):
     if kind == "client_error":
         table = boto3.resource("dynamodb").Table("no-such-table")
     else:
         table = _BrokenTable()
-    resp = worker.handle({"Records": [_record("m1", _job("a" * 32))]}, table=table)
+    resp = worker.handle(
+        {"Records": [_record("m1", _job("a" * 32))]}, table=table, bucket=notes_bucket
+    )
     assert _failures(resp) == ["m1"]
 
 
-def test_worker_is_idempotent(notes_table):
+def test_worker_is_idempotent(notes_table, notes_bucket):
     _put(notes_table, "a" * 32)
     event = {"Records": [_record("m1", _job("a" * 32))]}
-    assert worker.handle(event, table=notes_table) == {"batchItemFailures": []}
-    assert worker.handle(event, table=notes_table) == {"batchItemFailures": []}
+    assert worker.handle(event, table=notes_table, bucket=notes_bucket) == {
+        "batchItemFailures": []
+    }
+    assert worker.handle(event, table=notes_table, bucket=notes_bucket) == {
+        "batchItemFailures": []
+    }
     items = notes_table.scan()["Items"]
     assert len(items) == 1
     assert items[0]["status"] == "ROUTED"
 
 
-def test_worker_leaves_failed_note_alone(notes_table):
+def test_worker_leaves_failed_note_alone(notes_table, notes_bucket):
     _put(notes_table, "a" * 32, status=NoteStatus.FAILED)
-    resp = worker.handle({"Records": [_record("m1", _job("a" * 32))]}, table=notes_table)
+    resp = worker.handle(
+        {"Records": [_record("m1", _job("a" * 32))]}, table=notes_table, bucket=notes_bucket
+    )
     assert resp == {"batchItemFailures": []}
     assert get_note(notes_table, "a" * 32).status is NoteStatus.FAILED
+
+
+def _event(note_id="a" * 32, message_id="m1"):
+    return {"Records": [_record(message_id, _job(note_id))]}
+
+
+def _keys(bucket):
+    return [o.key for o in bucket.objects.all()]
+
+
+def test_worker_writes_okf_then_routes(notes_table, notes_bucket):
+    note_id = "a" * 32
+    _put(notes_table, note_id)
+    resp = worker.handle(_event(note_id), table=notes_table, bucket=notes_bucket)
+    assert resp == {"batchItemFailures": []}
+    parsed = blob.get_note(notes_bucket, TEAM_ID, note_id)
+    assert parsed is not None
+    assert parsed.note_id == note_id
+    assert parsed.text == "t"
+    assert get_note(notes_table, note_id).status is NoteStatus.ROUTED
+
+
+class _RaisingObject:
+    def __init__(self, exc):
+        self.exc = exc
+
+    def put(self, **kwargs):
+        raise self.exc
+
+
+class _RaisingBucket:
+    def __init__(self, exc):
+        self.exc = exc
+
+    def Object(self, key):  # noqa: N802 - boto3 resource API
+        return _RaisingObject(self.exc)
+
+
+@pytest.mark.parametrize("kind", ["client_error", "botocore_error"])
+def test_worker_s3_failure_keeps_captured(notes_table, caplog, kind):
+    note_id = "a" * 32
+    secret_text = "super secret note text"
+    note = Note(note_id=note_id, team_id=TEAM_ID, channel_id="C1", user_id="U1", text=secret_text)
+    assert put_if_absent(notes_table, note)
+    if kind == "client_error":
+        exc = ClientError({"Error": {"Code": "AccessDenied", "Message": secret_text}}, "PutObject")
+    else:
+        exc = EndpointConnectionError(endpoint_url="https://s3.invalid")
+    with caplog.at_level(logging.DEBUG, logger="slackkb"):
+        resp = worker.handle(
+            _event(note_id, "m-s3"), table=notes_table, bucket=_RaisingBucket(exc)
+        )
+    assert _failures(resp) == ["m-s3"]
+    assert get_note(notes_table, note_id).status is NoteStatus.CAPTURED
+    ours = [r for r in caplog.records if r.name.startswith("slackkb")]
+    warnings = [r.getMessage() for r in ours if r.levelno == logging.WARNING]
+    assert any(note_id in m and "m-s3" in m for m in warnings)
+    assert all(secret_text not in r.getMessage() for r in ours)
+
+
+@pytest.mark.parametrize(
+    ("exc", "logged"),
+    [
+        (EndpointConnectionError(endpoint_url="https://dynamodb.invalid"), "store error"),
+        (ClientError({"Error": {"Code": "Throttled"}}, "UpdateItem"), "store error"),
+        (NoteNotFoundError("a" * 32), "note not found"),
+    ],
+)
+def test_worker_route_failure_after_write_is_a_batch_failure(
+    notes_table, notes_bucket, caplog, monkeypatch, exc, logged
+):
+    def boom(table, note_id, to):
+        raise exc
+
+    note_id = "a" * 32
+    _put(notes_table, note_id)
+    monkeypatch.setattr(worker, "transition_status", boom)
+    with caplog.at_level(logging.WARNING, logger="slackkb"):
+        resp = worker.handle(_event(note_id, "m-route"), table=notes_table, bucket=notes_bucket)
+    assert _failures(resp) == ["m-route"]
+    assert blob.get_note(notes_bucket, TEAM_ID, note_id) is not None
+    assert get_note(notes_table, note_id).status is NoteStatus.CAPTURED
+    warnings = [r.getMessage() for r in caplog.records if r.name.startswith("slackkb")]
+    assert any(logged in m and note_id in m and "m-route" in m for m in warnings)
+
+
+def test_worker_missing_note_warns_and_writes_nothing(notes_table, notes_bucket, caplog):
+    note_id = "b" * 32
+    with caplog.at_level(logging.WARNING, logger="slackkb"):
+        resp = worker.handle(_event(note_id, "m-gone"), table=notes_table, bucket=notes_bucket)
+    assert _failures(resp) == ["m-gone"]
+    assert _keys(notes_bucket) == []
+    warnings = [r.getMessage() for r in caplog.records if r.name.startswith("slackkb")]
+    assert any("note not found" in m and note_id in m and "m-gone" in m for m in warnings)
+
+
+def test_worker_failed_note_writes_nothing(notes_table, notes_bucket):
+    _put(notes_table, "a" * 32, status=NoteStatus.FAILED)
+    resp = worker.handle(_event(), table=notes_table, bucket=notes_bucket)
+    assert resp == {"batchItemFailures": []}
+    assert _keys(notes_bucket) == []
+    assert get_note(notes_table, "a" * 32).status is NoteStatus.FAILED
+
+
+def test_worker_redelivery_rewrites_routed_note(notes_table, notes_bucket):
+    note_id = "a" * 32
+    _put(notes_table, note_id, status=NoteStatus.ROUTED)
+    assert _keys(notes_bucket) == []
+    resp = worker.handle(_event(note_id), table=notes_table, bucket=notes_bucket)
+    assert resp == {"batchItemFailures": []}
+    assert _keys(notes_bucket) == [f"notes/{TEAM_ID}/{note_id}.md"]
+    assert blob.get_note(notes_bucket, TEAM_ID, note_id) is not None
+    assert get_note(notes_table, note_id).status is NoteStatus.ROUTED
 
 
 def _imported_modules(tree):
@@ -211,7 +334,10 @@ BANNED = (
 
 @pytest.mark.parametrize(
     ("name", "boundaries"),
-    [("capture.py", {"slackkb.store", "slackkb.queue"}), ("worker.py", {"slackkb.store"})],
+    [
+        ("capture.py", {"slackkb.store", "slackkb.queue"}),
+        ("worker.py", {"slackkb.store", "slackkb.blob"}),
+    ],
 )
 def test_handlers_import_no_boto3(name, boundaries):
     source = (SRC / name).read_text()
