@@ -198,3 +198,16 @@ Logged after the fact; times approximate (local).
 - Vajra ran it from `~/Projects/sk-c9-comment-r4` (branch `calib/poison-comment-r4`); 21:35:16–21:36:30 EST, personal_6e469aa3, ready_for_human, no prompts. [observed]
 - verified: worktree 85 passed + ruff clean (env `6e724e566d9746c4`); diff only 4 docstring lines in `models.py`; no telemetry.py; `__init__.py` unchanged; line 2 still the planted comment; eval 0 (`docs/runs/c9-comment-r4-eval.md`). [manual verification]
 - not applied (calibration). Remove after Vajra's read: `git worktree remove ../sk-c9-comment-r4`, `git branch -D calib/poison-comment-r4`, `prama clean --session personal_6e469aa3`. [deferred to Vajra]
+
+## 2026-11-05 — S4 (Slice 4, OKF note to S3) through Pramā (Sārathi)
+- 13:43 preflight: install editable (Prama `4b48a88`, receipt 13:06, editable so no reinstall); profile by path; project file present; no OpenRouter key (Sārathi); slack-kb main `eee77cb`, clean. [observed]
+- prompt `prompts/s4-okf-note.md` (Oct 23) checked against main: worker signature, boundaries set and conftest `notes_bucket` still as written; only edit: "84 existing tests" → "91" (D-015 and the slack_verify fix added 7). [judgment]
+- renamed the r0 tee `docs/runs/s4.md` → `docs/runs/s4-r0.md` so the new tee wouldn't overwrite it. [operator step]
+- expected outcome written before the run: ready_for_human, acceptance + 91 green, 8 SCOPE paths, existing test_worker assertions unchanged, mutation 0 survived or escalation fixes it, review PASS, eval 0. [judgment]
+- flags: `--review --mutate`, one extra `--check` (the acceptance test; project file supplies pytest + ruff). [judgment]
+- Vajra ran it; 21:57:46–22:14:50 EST, personal_150f0a7c, ready_for_human after attempt 2, no permission prompts. [observed]
+- 2026-11-06 01:52 verified: eval 0 (`docs/runs/s4-eval.md`); worktree 142 passed + ruff clean with env `6e724e566d9746c4`; `git status` only the 8 SCOPE paths; removed test_worker lines are only signatures, `bucket=` calls, imports and the boundaries set (idempotent asserts reformatted, same values). [manual verification]
+- 9 hand mutants in a scratch copy, 8 killed (route before put, `sort_keys=False`, `rfind` close, no ContentType, swallow all ClientError, `extra="ignore"`, FAILED writes, worker catches only ClientError); `safe_load` → `FullLoader` survives (no behavior test can pin it; acceptable). [manual verification]
+- reviewer minor reproduced: `created_at: 2026-13-45` → bare `ValueError('month must be in 1..12')`; an unquoted valid date → `OkfNoteError`. Opus claim c5 (why m9 survived) checked by reading `from_markdown`: true. [manual verification]
+- my own diff-read notes (minor, not blocking): `blob.get_note` rebuilds the key by hand instead of a shared helper; reviewer minor above. [judgment]
+- not applied yet: Vajra reads the diff, commits these records, then `prama apply personal_150f0a7c`. [deferred to Vajra]

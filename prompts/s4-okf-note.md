@@ -16,7 +16,7 @@ SCOPE (only these paths may change)
 - tests/test_config.py         only if the new setting requires it
 
 CONTEXT
-- Slices 1-3 are merged; all 84 existing tests must stay green.
+- Slices 1-3 are merged; all 91 existing tests must stay green.
 - tests/conftest.py and tests/fixtures/ are read-only. Use its fixtures:
   aws, notes_table, capture_queue, slack_request, slack_interaction, the
   autouse offline_env (now also sets SLACKKB_NOTES_BUCKET), and the new
