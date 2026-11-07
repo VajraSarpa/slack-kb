@@ -6,13 +6,10 @@ from botocore.exceptions import ClientError
 
 from slackkb.models import Note
 from slackkb.okf_note import OkfNote, from_markdown, to_markdown
+from slackkb.okf_note import key_for as _key
 
 CONTENT_TYPE = "text/markdown; charset=utf-8"
 _MISSING = {"NoSuchKey", "404", "NotFound"}
-
-
-def _key(team_id: str, note_id: str) -> str:
-    return f"notes/{team_id}/{note_id}.md"
 
 
 def put_note(bucket: Any, note: Note) -> None:

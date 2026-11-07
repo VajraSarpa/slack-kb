@@ -29,7 +29,7 @@ class OkfNote(BaseModel):
 
 
 class _Frontmatter(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
 
     note_id: str
     team_id: str
@@ -38,8 +38,12 @@ class _Frontmatter(BaseModel):
     created_at: str
 
 
+def key_for(team_id: str, note_id: str) -> str:
+    return f"notes/{team_id}/{note_id}.md"
+
+
 def object_key(note: Note | OkfNote) -> str:
-    return f"notes/{note.team_id}/{note.note_id}.md"
+    return key_for(note.team_id, note.note_id)
 
 
 def to_markdown(note: Note) -> str:
@@ -66,7 +70,7 @@ def from_markdown(md: str) -> OkfNote:
         head, body = rest[: end + 1], rest[end + 1 + len(DELIMITER) :]
     try:
         data = yaml.safe_load(head)
-    except (yaml.YAMLError, ValueError, TypeError):
+    except Exception:
         raise OkfNoteError("frontmatter is not valid YAML") from None
     if not isinstance(data, dict):
         raise OkfNoteError("frontmatter is not a mapping")

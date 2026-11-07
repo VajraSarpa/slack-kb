@@ -63,6 +63,12 @@ def test_put_get_delete_share_one_key_helper(notes_bucket, monkeypatch):
     assert list(notes_bucket.objects.all()) == []
 
 
+def test_blob_keys_come_from_okf_note_key_for(notes_bucket):
+    n = _note()
+    blob.put_note(notes_bucket, n)
+    assert [o.key for o in notes_bucket.objects.all()] == [object_key(n)]
+
+
 def test_put_overwrites(notes_bucket):
     blob.put_note(notes_bucket, _note("first"))
     blob.put_note(notes_bucket, _note("second"))

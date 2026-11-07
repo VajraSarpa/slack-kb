@@ -2,7 +2,7 @@ import pytest
 import yaml
 
 from slackkb.models import Note, NoteStatus, Severity
-from slackkb.okf_note import OkfNote, OkfNoteError, from_markdown, object_key, to_markdown
+from slackkb.okf_note import OkfNote, OkfNoteError, from_markdown, key_for, object_key, to_markdown
 
 FIELDS = ("note_id", "team_id", "channel_id", "user_id", "created_at")
 
@@ -129,6 +129,44 @@ def test_yaml_value_errors_become_okf_note_error(line):
     )
     with pytest.raises(OkfNoteError):
         from_markdown("---\n" + head + "---\nbody")
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        'note_id: !!int ""',
+        "note_id: !!bool foo",
+        "created_at: !!timestamp foo",
+        'note_id: !!binary "@@"',
+        "note_id: !!binary aGVsbG8=",
+        "note_id: 123",
+        "note_id:",
+        "created_at: 2026-01-02",
+    ],
+)
+def test_bad_frontmatter_values_become_okf_note_error(line):
+    key = line.split(":")[0]
+    head = "".join(
+        (line if row.startswith(key + ":") else row) + "\n" for row in VALID_HEAD.splitlines()
+    )
+    with pytest.raises(OkfNoteError):
+        from_markdown("---\n" + head + "---\nbody")
+
+
+def test_any_safe_load_exception_becomes_okf_note_error(monkeypatch):
+    def boom(_):
+        raise TypeError("boom")
+
+    monkeypatch.setattr(yaml, "safe_load", boom)
+    with pytest.raises(OkfNoteError) as info:
+        from_markdown("---\n" + VALID_HEAD + "---\nbody")
+    assert info.value.__cause__ is None and info.value.__suppress_context__
+
+
+def test_key_for_matches_object_key():
+    n = _note()
+    assert key_for(n.team_id, n.note_id) == object_key(n)
+    assert key_for("T9", "x") == "notes/T9/x.md"
 
 
 def test_okf_note_error_is_value_error():
