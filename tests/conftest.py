@@ -16,6 +16,8 @@ NOTES_TABLE = "slackkb-notes-test"
 CAPTURE_QUEUE = "slackkb-capture-test"
 CAPTURE_DLQ = "slackkb-capture-dlq-test"
 NOTES_BUCKET = "slackkb-notes-test"
+VECTORS_TABLE = "slackkb-note-vectors-test"
+EMBED_MODEL_ID = "amazon.titan-embed-text-v2:0"
 MAX_RECEIVES = 3
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -32,6 +34,8 @@ def offline_env(monkeypatch):
     monkeypatch.setenv("SLACKKB_SLACK_BOT_TOKEN", BOT_TOKEN)
     monkeypatch.setenv("SLACKKB_NOTES_BUCKET", NOTES_BUCKET)
     monkeypatch.setenv("SLACKKB_QA_MODEL_ID", "us.anthropic.claude-haiku-test")
+    monkeypatch.setenv("SLACKKB_VECTORS_TABLE", VECTORS_TABLE)
+    monkeypatch.setenv("SLACKKB_EMBED_MODEL_ID", EMBED_MODEL_ID)
 
 
 @pytest.fixture
@@ -55,6 +59,23 @@ def notes_table(aws):
 def notes_bucket(aws):
     """Notes bucket for OKF objects (D-014); name is in offline_env."""
     return boto3.resource("s3").create_bucket(Bucket=NOTES_BUCKET)
+
+
+@pytest.fixture
+def vectors_table(aws):
+    """note_vectors table (D-008): PK team_id, SK note_id; name is in offline_env."""
+    return boto3.resource("dynamodb").create_table(
+        TableName=VECTORS_TABLE,
+        KeySchema=[
+            {"AttributeName": "team_id", "KeyType": "HASH"},
+            {"AttributeName": "note_id", "KeyType": "RANGE"},
+        ],
+        AttributeDefinitions=[
+            {"AttributeName": "team_id", "AttributeType": "S"},
+            {"AttributeName": "note_id", "AttributeType": "S"},
+        ],
+        BillingMode="PAY_PER_REQUEST",
+    )
 
 
 @dataclass
