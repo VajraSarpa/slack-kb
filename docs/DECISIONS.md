@@ -87,7 +87,9 @@
         .replace()/.format() over user text (A0 #4). qa.answer_question
         (question, notes, *, client, model_id) -> QaResult: no notes ->
         fixed "No notes match." and no Bedrock call; a cited id not among
-        the notes given is dropped and logged. Bedrock ClientError /
+        the notes given is dropped; only the count of dropped ids is
+        logged, never an id (model output; it can carry note text).
+        Bedrock ClientError /
         BotoCoreError, or tool output that doesn't validate, raises QaError;
         qa makes no Slack calls (Slice 7 turns QaError into the ephemeral
         message). Question and note text are never logged. Settings gains a
