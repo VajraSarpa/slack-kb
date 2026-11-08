@@ -205,3 +205,35 @@
         only, never prices, prompts or text; a response without counts
         logs a warning and the call still succeeds. Never logged, as
         before: note text, question text, response_url, tokens, secrets.
+- D-020 (2026-11-08) Lambda entry points and secrets (Slice 8a; amends
+        D-007). Vajra picked: secrets fetched by ARN at cold start, and
+        both secrets optional in Settings, checked where used. Claude wrote
+        the rest under the standing delegation. New module entry.py with
+        six handlers, each (event, context) -> what handle() returns:
+        capture_handler, modal_handler, events_handler, worker_handler,
+        notify_handler, thread_handler; the template's Handler is
+        slackkb.entry.<name>. Importing entry.py makes no AWS or network
+        call. On a container's first call, cached for its life: run
+        obs.configure(); fetch the secrets that Lambda uses with Secrets
+        Manager GetSecretValue (the whole SecretString) from the ARN in
+        SIGNING_SECRET_ARN / SLACK_BOT_TOKEN_ARN; build Settings() from the
+        SLACKKB_ environment plus those values; build the boto3 DynamoDB
+        Tables, S3 Bucket, SQS and bedrock-runtime clients it needs. A
+        failed fetch raises, so the cold start fails and Lambda or SQS
+        retries; nothing is cached on failure. Who reads which secret:
+        capture and events the signing secret; modal both; thread the bot
+        token; worker and notify none. Each call: now = int(time.time()),
+        the event passed to handle() unchanged. Bindings: worker embed =
+        embed_text on bedrock-runtime with embed_model_id; notify post =
+        post_response_url with a 10 s response_url transport (D-018);
+        thread uses thread.bind and thread.slack_client (10 s, D-017);
+        modal's SlackClient keeps the 2.5 s views.open transport.
+        Amendment to D-007: signing_secret and slack_bot_token become
+        optional (None when unset), so a Lambda gets only the secrets its
+        IAM role can read. A handler that needs a secret it wasn't given
+        raises config.MissingSecret naming the field (never a value) before
+        it reads the request; the C4 "missing secret fails" tests change to
+        "missing secret is None and fails at use". Never logged: a secret
+        value. For Vajra in infra/ (Slice 8b): every Lambda gets the
+        SLACKKB_ settings; only the Lambdas above get the ARN env vars and
+        secretsmanager:GetSecretValue on those ARNs alone.
