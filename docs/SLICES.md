@@ -14,6 +14,7 @@ Written in Step 7 from the audit (`docs/audit-A0.md`), following the plan's slic
 | 7a | Events API ingress for @-mentions (D-017). Verify, then answer `url_verification`; ignore bot_id/subtype events; dedup retries on `event_id` instead of dropping them (A0 #2, D-011); enqueue a QuestionJob to its own queue; enqueue failure releases the claim and returns 500. | `events`, `dedup`, `queue`, `models`, `config` | `uv run pytest tests/test_events.py::test_retry_is_deduplicated` | 5, 6, D-011, D-017 |
 | 7b | Question worker: the real `retrieve` (Slice 6) and `answer_question` (Slice 5), reply in the thread by channel + `thread_ts` (A0 #7); "no results" reply names the query (D-008); QaError → ephemeral (D-016). | `thread`, `slack_api` | `uv run pytest tests/test_thread.py::test_reply_posts_in_thread_ts` | 7a |
 | 8 | SAM template: least-privilege IAM, Secrets Manager, DLQ. Human-authored `infra/`; Pramā may write the test (D-005). | `infra/template.yaml`, `tests/test_infra.py` | `cfn-lint infra/template.yaml && uv run pytest tests/test_infra.py::test_no_wildcard_iam` | 2, 4, 5 |
-| 9 | Correlation IDs, structured logs, token spend. | `obs` (+ one call per handler) | `uv run pytest tests/test_obs.py::test_log_has_trace_id` | 2 |
+| 9a | Correlation IDs and structured logs (D-019): trace = note_id / event_id, JSON lines, `obs.configure()`. | `obs` (+ the trace calls in `capture`, `modal`, `events`, `worker`, `thread`, `notify`) | `uv run pytest tests/test_obs.py::test_log_has_trace_id` | 2, D-019 |
+| 9b | Token spend (D-019): one INFO line per Bedrock call with token counts. | `llm`, `embed` | `uv run pytest tests/test_llm.py::test_converse_usage_logged` | 9a |
 
 Paths are under `src/slackkb/` unless shown otherwise.

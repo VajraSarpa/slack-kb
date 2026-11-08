@@ -179,3 +179,29 @@
         capture DLQ gets notify as its event source, and maxReceiveCount x
         the visibility timeout should land jobs in the DLQ well inside
         30 min, or the notice can't be delivered.
+- D-019 (2026-11-08) Observability (Slice 9, split 9a/9b). Vajra picked
+        the trace id; Claude wrote the rest under the standing delegation.
+        stdlib logging only, no new dependency. New module obs.py:
+        trace_id lives in a contextvar. A trace is the note_id on the
+        capture path (capture, modal, worker, notify) and the event_id on
+        the question path (events, thread), so one note or one question
+        reads across Lambdas with no model change, and a Slack retry or an
+        SQS redelivery shares its trace (repeat answers for one event_id
+        show up, the D-017 "answered" marker question). Each HTTP handler
+        call and each SQS record runs in its own trace, which starts as a
+        random id ("r-" + 16 hex) and is rebound to the note_id/event_id
+        once parsed; an id that isn't 1-64 of [A-Za-z0-9_-] is not bound
+        (the random id stays), so request input never shapes the field.
+        obs.configure() (called by the Lambda entry points, Slice 8)
+        installs one stdout handler writing one JSON object per line with
+        ts (UTC, ms, Z), level, logger, msg, trace_id, plus exc (the class
+        name only) when exc_info is set; it sets the root level to INFO and
+        botocore, boto3, urllib3 to WARNING (botocore DEBUG logs whole
+        Bedrock requests, D-016 carry-over); calling it again doesn't add a
+        second handler. Existing log messages keep their text. Token spend
+        (9b): llm.ask and embed.embed_text each log one INFO line per
+        successful Bedrock call with model_id and token counts (Converse
+        usage inputTokens/outputTokens; Titan inputTextTokenCount), counts
+        only, never prices, prompts or text; a response without counts
+        logs a warning and the call still succeeds. Never logged, as
+        before: note text, question text, response_url, tokens, secrets.
