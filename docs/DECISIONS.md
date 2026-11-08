@@ -75,3 +75,20 @@
         (no duplicate ever arrives for a slash command), and a sweeper
         (more moving parts for a rare failure). Needs store.delete_if_captured
         and a test that a failed send leaves no item.
+- D-016 (2026-11-07) Q&A (Slice 5). llm.py calls the Bedrock Converse
+        API through an injected bedrock-runtime client and forces one tool,
+        "answer", whose input is {answer: str, cited_note_ids: [str]}; no
+        free-text parsing. Converse is authorised by bedrock:InvokeModel, so
+        D-012's IAM stands. Tests fake Bedrock with botocore's Stubber on a
+        real client (offline, schema-checked); no conftest fake. Untrusted
+        text: the system prompt is a fixed constant; the question and each
+        note go in the user message, each note in <note id="..."> ...
+        </note> with &, <, > escaped so a note can't close its block; no
+        .replace()/.format() over user text (A0 #4). qa.answer_question
+        (question, notes, *, client, model_id) -> QaResult: no notes ->
+        fixed "No notes match." and no Bedrock call; a cited id not among
+        the notes given is dropped and logged. Bedrock ClientError /
+        BotoCoreError, or tool output that doesn't validate, raises QaError;
+        qa makes no Slack calls (Slice 7 turns QaError into the ephemeral
+        message). Question and note text are never logged. Settings gains a
+        required qa_model_id (SLACKKB_QA_MODEL_ID), no default (D-012).

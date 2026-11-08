@@ -31,6 +31,7 @@ def offline_env(monkeypatch):
     monkeypatch.setenv("SLACKKB_NOTES_TABLE", NOTES_TABLE)
     monkeypatch.setenv("SLACKKB_SLACK_BOT_TOKEN", BOT_TOKEN)
     monkeypatch.setenv("SLACKKB_NOTES_BUCKET", NOTES_BUCKET)
+    monkeypatch.setenv("SLACKKB_QA_MODEL_ID", "us.anthropic.claude-haiku-test")
 
 
 @pytest.fixture
