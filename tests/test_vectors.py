@@ -1,6 +1,7 @@
 import logging
 import struct
 
+import pytest
 from boto3.dynamodb.types import Binary
 
 from slackkb import vectors
@@ -71,6 +72,37 @@ def test_delete_removes_and_missing_is_ok(vectors_table):
     vectors.put_vector(vectors_table, "T1", "n1", vec(0.1))
     vectors.delete_vector(vectors_table, "T1", "n1")
     assert vectors.list_vectors(vectors_table, "T1") == []
+
+
+def test_vector_bytes_are_little_endian_float32(vectors_table):
+    vector = vec(0.1)
+    vectors.put_vector(vectors_table, "T1", "n1", vector)
+    expected = struct.pack("<512f", *vector)
+    assert expected != struct.pack(">512f", *vector)
+    item = vectors_table.get_item(Key={"team_id": "T1", "note_id": "n1"})["Item"]
+    assert bytes(item["vector"]) == expected
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        [0.1] * (DIMENSIONS - 1),
+        [0.1] * (DIMENSIONS + 1),
+        [],
+        [1e39] * DIMENSIONS,
+        [-1e39] + [0.1] * (DIMENSIONS - 1),
+        [float("nan")] + [0.1] * (DIMENSIONS - 1),
+        [float("inf")] + [0.1] * (DIMENSIONS - 1),
+        ["x"] + [0.1] * (DIMENSIONS - 1),
+        [10**400] + [0.1] * (DIMENSIONS - 1),
+    ],
+)
+def test_put_vector_rejects_bad_vector(vectors_table, bad):
+    with pytest.raises(vectors.VectorError):
+        vectors.put_vector(vectors_table, "T1", "n1", bad)
+    assert issubclass(vectors.VectorError, ValueError)
+    assert vectors.list_vectors(vectors_table, "T1") == []
+    assert "Item" not in vectors_table.get_item(Key={"team_id": "T1", "note_id": "n1"})
 
 
 def test_delete_missing_is_ok(vectors_table):

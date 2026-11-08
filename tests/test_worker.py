@@ -846,3 +846,63 @@ def test_worker_vector_delete_failure_retries(notes_table, notes_bucket, lost_ra
     table = _RaceTable(notes_table, NoteStatus.FAILED) if lost_race else notes_table
     resp = _handle(_event(note_id, "m-vd"), table, notes_bucket, Broken(), lambda t: _vec())
     assert _failures(resp) == ["m-vd"]
+
+
+def test_handle_requires_vector_args(notes_table, notes_bucket, vectors_table):
+    with pytest.raises(TypeError):
+        worker.handle(
+            _event(), table=notes_table, bucket=notes_bucket, embed=lambda t: _vec()
+        )
+    with pytest.raises(TypeError):
+        worker.handle(
+            _event(), table=notes_table, bucket=notes_bucket, vectors_table=vectors_table
+        )
+
+
+def test_worker_bad_vector_is_record_failure(
+    notes_table, notes_bucket, vectors_table, caplog
+):
+    bad, good = "a" * 32, "b" * 32
+    note = Note(note_id=bad, team_id=TEAM_ID, channel_id="C1", user_id="U1", text=NOTE_TEXT)
+    assert put_if_absent(notes_table, note)
+    _put(notes_table, good)
+    event = {"Records": [_record("m-bad", _job(bad)), _record("m-good", _job(good))]}
+
+    def embed(text):
+        return [1e39] * DIMENSIONS if text == NOTE_TEXT else _vec()
+
+    with caplog.at_level(logging.WARNING, logger="slackkb"):
+        resp = _handle(event, notes_table, notes_bucket, vectors_table, embed)
+    assert _failures(resp) == ["m-bad"]
+    assert get_note(notes_table, bad).status is NoteStatus.CAPTURED
+    assert get_note(notes_table, good).status is NoteStatus.ROUTED
+    assert [n for n, _ in list_vectors(vectors_table, TEAM_ID)] == [good]
+    assert any(
+        "VectorError" in r.getMessage() and bad in r.getMessage()
+        for r in caplog.records
+        if r.levelno == logging.WARNING
+    )
+    assert NOTE_TEXT not in caplog.text
+
+
+def test_vector_delete_failure_logged_as_vector_error(notes_table, notes_bucket, caplog):
+    note_id = "a" * 32
+    _put(notes_table, note_id, status=NoteStatus.FAILED)
+
+    class Broken:
+        def delete_item(self, **kwargs):
+            raise ClientError({"Error": {"Code": "AccessDenied"}}, "DeleteItem")
+
+    with caplog.at_level(logging.WARNING, logger="slackkb"):
+        resp = _handle(
+            _event(note_id, "m-vd"), notes_table, notes_bucket, Broken(), lambda t: _vec()
+        )
+    assert _failures(resp) == ["m-vd"]
+    messages = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert any(
+        m.startswith("vector delete error ClientError")
+        and f"note_id={note_id}" in m
+        and "message_id=m-vd" in m
+        for m in messages
+    )
+    assert not any("blob delete error" in m for m in messages)

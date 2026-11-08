@@ -600,7 +600,7 @@ def test_handlers_import_no_http_client(name):
 
 
 def test_modal_submission_on_routed_note_updates_severity(
-    slack_request, slack_interaction, notes_table, notes_bucket, capture_queue
+    slack_request, slack_interaction, notes_table, notes_bucket, capture_queue, vectors_table
 ):
     _capture(slack_request, notes_table)
     event = {
@@ -612,9 +612,13 @@ def test_modal_submission_on_routed_note_updates_severity(
             }
         ]
     }
-    assert worker.handle(event, table=notes_table, bucket=notes_bucket) == {
-        "batchItemFailures": []
-    }
+    assert worker.handle(
+        event,
+        table=notes_table,
+        bucket=notes_bucket,
+        vectors_table=vectors_table,
+        embed=lambda text: [0.0] * __import__("slackkb.embed", fromlist=["DIMENSIONS"]).DIMENSIONS,
+    ) == {"batchItemFailures": []}
     before = get_note(notes_table, NOTE_ID)
     assert before.status is NoteStatus.ROUTED
     assert before.text is None
