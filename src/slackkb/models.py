@@ -66,3 +66,16 @@ class CaptureJob(BaseModel):
     """SQS message body from capture to the worker (Slice 2, D-004)."""
 
     note_id: str = Field(pattern=r"^[0-9a-f]{32}$")
+
+
+class QuestionJob(BaseModel):
+    """SQS message body from the events handler to the question worker (D-017)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    event_id: str = Field(min_length=1)
+    team_id: str = Field(min_length=1)
+    channel: str = Field(min_length=1)
+    user: str = Field(min_length=1)
+    thread_ts: str = Field(min_length=1)
+    question: str = Field(min_length=1)

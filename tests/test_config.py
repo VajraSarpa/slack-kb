@@ -2,8 +2,10 @@ import pytest
 from conftest import (
     BOT_TOKEN,
     EMBED_MODEL_ID,
+    EVENTS_TABLE,
     NOTES_BUCKET,
     NOTES_TABLE,
+    QUESTION_QUEUE_URL,
     SIGNING_SECRET,
     VECTORS_TABLE,
 )
@@ -108,3 +110,16 @@ def test_bot_token_is_secret():
     assert isinstance(s.slack_bot_token, SecretStr)
     assert BOT_TOKEN not in repr(s)
     assert BOT_TOKEN not in str(s)
+
+
+def test_reads_events_settings():
+    s = Settings()
+    assert s.events_table == EVENTS_TABLE
+    assert s.question_queue_url == QUESTION_QUEUE_URL
+
+
+@pytest.mark.parametrize("name", ["SLACKKB_EVENTS_TABLE", "SLACKKB_QUESTION_QUEUE_URL"])
+def test_missing_events_settings_fail(monkeypatch, name):
+    monkeypatch.delenv(name)
+    with pytest.raises(ValidationError):
+        Settings()

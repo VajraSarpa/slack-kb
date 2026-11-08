@@ -19,3 +19,5 @@ class Settings(BaseSettings):
     qa_model_id: str
     vectors_table: str
     embed_model_id: str
+    events_table: str
+    question_queue_url: str

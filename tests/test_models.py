@@ -5,7 +5,7 @@ import pytest
 from conftest import FIXTURES
 from pydantic import ValidationError
 
-from slackkb.models import CaptureRequest, Note, NoteStatus, Severity
+from slackkb.models import CaptureRequest, Note, NoteStatus, QuestionJob, Severity
 
 
 def _note(**overrides):
@@ -53,3 +53,23 @@ def test_note_text_none_only_when_routed():
             _note(text=None, status=status)
     assert _note(text=None, status=NoteStatus.ROUTED).text is None
     assert _note(text="x", status=NoteStatus.ROUTED).text == "x"
+
+
+def test_question_job_rejects_empty_and_extra():
+    fields = {
+        "event_id": "Ev000TEST0001",
+        "team_id": "T000TEST",
+        "channel": "C000TEST",
+        "user": "U000TEST",
+        "thread_ts": "1762600000.000100",
+        "question": "why?",
+    }
+    assert QuestionJob(**fields).question == "why?"
+    for name in fields:
+        with pytest.raises(ValidationError):
+            QuestionJob(**{**fields, name: ""})
+        missing = {k: v for k, v in fields.items() if k != name}
+        with pytest.raises(ValidationError):
+            QuestionJob(**missing)
+    with pytest.raises(ValidationError):
+        QuestionJob(**fields, extra="x")
