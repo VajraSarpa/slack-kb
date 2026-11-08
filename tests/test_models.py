@@ -45,3 +45,11 @@ def test_capture_request_ignores_extra_form_fields():
     assert req.command == "/bnote"
     assert req.trigger_id == "1111.2222.abcdef"
     assert not hasattr(req, "response_url")
+
+
+def test_note_text_none_only_when_routed():
+    for status in (NoteStatus.CAPTURED, NoteStatus.FAILED):
+        with pytest.raises(ValidationError):
+            _note(text=None, status=status)
+    assert _note(text=None, status=NoteStatus.ROUTED).text is None
+    assert _note(text="x", status=NoteStatus.ROUTED).text == "x"

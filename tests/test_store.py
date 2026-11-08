@@ -3,7 +3,14 @@ import pytest
 from botocore.exceptions import ClientError, EndpointConnectionError
 
 from slackkb.models import Note, NoteStatus
-from slackkb.store import StoreError, delete_if_captured, get_note, put_if_absent
+from slackkb.store import (
+    NoteNotFoundError,
+    StoreError,
+    delete_if_captured,
+    get_note,
+    put_if_absent,
+    route_note,
+)
 
 
 def make_note(**overrides) -> Note:
@@ -108,3 +115,52 @@ def test_delete_if_captured_wraps_botocore_errors():
     assert str(exc.value) == "EndpointConnectionError"
     assert "a" * 32 not in str(exc.value)
     assert "dynamodb.invalid" not in str(exc.value)
+
+
+def test_route_note_sets_routed_and_removes_text(notes_table):
+    note = make_note()
+    assert put_if_absent(notes_table, note)
+    assert route_note(notes_table, note.note_id) is True
+    item = notes_table.get_item(Key={"note_id": note.note_id})["Item"]
+    assert item["status"] == "ROUTED"
+    assert "text" not in item
+    assert item["team_id"] == "T1"
+
+
+def test_route_note_only_from_captured(notes_table):
+    failed = make_note(note_id="f" * 32, status=NoteStatus.FAILED)
+    routed = make_note(note_id="r" * 32, status=NoteStatus.ROUTED)
+    assert put_if_absent(notes_table, failed)
+    assert put_if_absent(notes_table, routed)
+    for note in (failed, routed):
+        before = notes_table.get_item(Key={"note_id": note.note_id})["Item"]
+        assert route_note(notes_table, note.note_id) is False
+        assert notes_table.get_item(Key={"note_id": note.note_id})["Item"] == before
+    assert get_note(notes_table, failed.note_id).text == "first report"
+    with pytest.raises(NoteNotFoundError):
+        route_note(notes_table, "m" * 32)
+
+
+def test_route_note_propagates_other_errors():
+    class _ThrottledTable:
+        """update_item is throttled; the note exists, so swallowing the error would return False."""
+
+        def update_item(self, **kwargs):
+            raise ClientError(
+                {"Error": {"Code": "ProvisionedThroughputExceededException"}}, "UpdateItem"
+            )
+
+        def get_item(self, **kwargs):
+            return {"Item": {"note_id": "a" * 32}}
+
+    with pytest.raises(ClientError) as exc:
+        route_note(_ThrottledTable(), "a" * 32)
+    assert exc.value.response["Error"]["Code"] == "ProvisionedThroughputExceededException"
+
+
+def test_get_note_loads_routed_note_without_text(notes_table):
+    note = make_note()
+    assert put_if_absent(notes_table, note)
+    assert route_note(notes_table, note.note_id)
+    loaded = get_note(notes_table, note.note_id)
+    assert loaded == note.model_copy(update={"text": None, "status": NoteStatus.ROUTED})

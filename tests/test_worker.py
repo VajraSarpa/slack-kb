@@ -264,12 +264,12 @@ def test_worker_s3_failure_keeps_captured(notes_table, caplog, kind):
 def test_worker_route_failure_after_write_is_a_batch_failure(
     notes_table, notes_bucket, caplog, monkeypatch, exc, logged
 ):
-    def boom(table, note_id, to):
+    def boom(table, note_id):
         raise exc
 
     note_id = "a" * 32
     _put(notes_table, note_id)
-    monkeypatch.setattr(worker, "transition_status", boom)
+    monkeypatch.setattr(worker, "route_note", boom)
     with caplog.at_level(logging.WARNING, logger="slackkb"):
         resp = worker.handle(_event(note_id, "m-route"), table=notes_table, bucket=notes_bucket)
     assert _failures(resp) == ["m-route"]
@@ -297,15 +297,47 @@ def test_worker_failed_note_writes_nothing(notes_table, notes_bucket):
     assert get_note(notes_table, "a" * 32).status is NoteStatus.FAILED
 
 
-def test_worker_redelivery_rewrites_routed_note(notes_table, notes_bucket):
+def test_worker_routes_and_drops_text(notes_table, notes_bucket):
     note_id = "a" * 32
-    _put(notes_table, note_id, status=NoteStatus.ROUTED)
-    assert _keys(notes_bucket) == []
+    _put(notes_table, note_id)
     resp = worker.handle(_event(note_id), table=notes_table, bucket=notes_bucket)
     assert resp == {"batchItemFailures": []}
-    assert _keys(notes_bucket) == [f"notes/{TEAM_ID}/{note_id}.md"]
-    assert blob.get_note(notes_bucket, TEAM_ID, note_id) is not None
-    assert get_note(notes_table, note_id).status is NoteStatus.ROUTED
+    parsed = blob.get_note(notes_bucket, TEAM_ID, note_id)
+    assert parsed is not None
+    assert parsed.text == "t"
+    item = notes_table.get_item(Key={"note_id": note_id})["Item"]
+    assert item["status"] == "ROUTED"
+    assert "text" not in item
+
+
+def test_worker_redelivery_of_routed_note_writes_nothing(notes_table, caplog):
+    note_id = "a" * 32
+    _put(notes_table, note_id)
+    assert notes_table.update_item(
+        Key={"note_id": note_id},
+        UpdateExpression="SET #status = :r REMOVE #text",
+        ExpressionAttributeNames={"#status": "status", "#text": "text"},
+        ExpressionAttributeValues={":r": "ROUTED"},
+    )
+    before = notes_table.get_item(Key={"note_id": note_id})["Item"]
+    # A bucket whose put raises proves the worker never writes to S3.
+    bucket = _RaisingBucket(RuntimeError("put must not be called"))
+    assert _run(notes_table, bucket, caplog, message_id="m-redo") == {"batchItemFailures": []}
+    assert notes_table.get_item(Key={"note_id": note_id})["Item"] == before
+    (rec,) = _worker_records(caplog, logging.INFO)
+    msg = rec.getMessage()
+    assert "note already routed, nothing written" in msg
+    assert note_id in msg and "m-redo" in msg
+    assert _worker_records(caplog, logging.WARNING) == []
+
+
+def test_worker_failed_note_keeps_text(notes_table, notes_bucket):
+    note_id = "a" * 32
+    _put(notes_table, note_id, status=NoteStatus.FAILED)
+    resp = worker.handle(_event(note_id), table=notes_table, bucket=notes_bucket)
+    assert resp == {"batchItemFailures": []}
+    assert _keys(notes_bucket) == []
+    assert notes_table.get_item(Key={"note_id": note_id})["Item"]["text"] == "t"
 
 
 def _worker_records(caplog, level):
@@ -338,14 +370,14 @@ def test_worker_logs_note_routed(notes_table, notes_bucket, caplog):
     assert _worker_records(caplog, logging.WARNING) == []
 
 
-def test_worker_logs_redelivery_rewritten(notes_table, notes_bucket, caplog):
+def test_worker_logs_redelivery_nothing_written(notes_table, notes_bucket, caplog):
     _put(notes_table, "a" * 32, status=NoteStatus.ROUTED)
     assert _run(notes_table, notes_bucket, caplog) == {"batchItemFailures": []}
     (rec,) = _worker_records(caplog, logging.INFO)
     msg = rec.getMessage()
-    assert "note already routed, rewritten" in msg and "a" * 32 in msg and "m1" in msg
+    assert "note already routed, nothing written" in msg and "a" * 32 in msg and "m1" in msg
     assert _worker_records(caplog, logging.WARNING) == []
-    assert _keys(notes_bucket) == [f"notes/{TEAM_ID}/{'a' * 32}.md"]
+    assert _keys(notes_bucket) == []
 
 
 class _RaceTable:
@@ -432,7 +464,7 @@ def test_worker_lost_race_to_failed_delete_failure_retries(
 
 
 def _lost_race(monkeypatch, second):
-    """transition_status reports a lost race; the re-read returns `second` (or raises it)."""
+    """route_note reports a lost race; the re-read returns `second` (or raises it)."""
     real = worker.get_note
     calls = []
 
@@ -445,7 +477,7 @@ def _lost_race(monkeypatch, second):
         return second
 
     monkeypatch.setattr(worker, "get_note", fake_get)
-    monkeypatch.setattr(worker, "transition_status", lambda table, note_id, to: False)
+    monkeypatch.setattr(worker, "route_note", lambda table, note_id: False)
 
 
 @pytest.mark.parametrize(
@@ -593,7 +625,7 @@ def test_worker_logs_never_contain_secrets(notes_table, notes_bucket, caplog, mo
         m.setattr(worker, "get_note", raises)
         run(put("8"))
     with monkeypatch.context() as m:
-        m.setattr(worker, "transition_status", raises)
+        m.setattr(worker, "route_note", raises)
         run(put("9"))
     with monkeypatch.context() as m:
         _lost_race(m, None)
