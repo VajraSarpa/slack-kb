@@ -354,3 +354,42 @@ def test_text_never_logged(caplog):
     text = caplog.text + " ".join(str(r.args) for r in caplog.records)
     for marker in (QUESTION_MARKER, ANSWER_MARKER, NOTE_MARKER):
         assert marker not in text
+
+
+class _FakeSlackResponse:
+    def read(self):
+        return b'{"ok": true}'
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def test_slack_client_uses_10s_timeout(monkeypatch):
+    seen = []
+
+    def fake_urlopen(request, timeout=None):
+        seen.append((request, timeout))
+        return _FakeSlackResponse()
+
+    monkeypatch.setattr("slackkb.slack_api.urllib.request.urlopen", fake_urlopen)
+    monkeypatch.setenv(
+        "SLACKKB_CAPTURE_QUEUE_URL", "https://sqs.us-east-1.amazonaws.com/1/capture-test"
+    )
+    thread.slack_client(Settings()).chat_post_message("C1", "1700000000.000100", "hi")
+    assert len(seen) == 1
+    request, timeout = seen[0]
+    assert timeout == 10.0
+    assert thread.SLACK_TIMEOUT_SECONDS == 10.0
+    assert request.get_header("Authorization") == "Bearer xoxb-test-token"
+
+
+def test_slack_client_repr_hides_token(monkeypatch):
+    monkeypatch.setenv(
+        "SLACKKB_CAPTURE_QUEUE_URL", "https://sqs.us-east-1.amazonaws.com/1/capture-test"
+    )
+    client = thread.slack_client(Settings())
+    assert isinstance(client, SlackClient)
+    assert "xoxb-test-token" not in repr(client)

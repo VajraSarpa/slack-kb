@@ -17,14 +17,23 @@ from slackkb.config import Settings
 from slackkb.models import QuestionJob
 from slackkb.okf_note import OkfNote
 from slackkb.qa import QaError, QaResult
-from slackkb.slack_api import SlackClient
+from slackkb.slack_api import SlackClient, make_urllib_transport
 
 logger = logging.getLogger(__name__)
+
+SLACK_TIMEOUT_SECONDS = 10.0
 
 QA_ERROR_TEXT = "Sorry, I couldn't answer that. Please try again."
 
 Retrieve = Callable[[str, str], list[OkfNote]]
 Answer = Callable[[str, list[OkfNote]], QaResult]
+
+
+def slack_client(settings: Settings) -> SlackClient:
+    """The worker's Slack client: a 10 s timeout, unlike views.open's 2.5 s (D-017)."""
+    return SlackClient(
+        settings.slack_bot_token, make_urllib_transport(SLACK_TIMEOUT_SECONDS)
+    )
 
 
 def slack_escape(text: str) -> str:
