@@ -12,6 +12,8 @@ SCOPE (only these paths may change)
 - tests/test_slack_api.py      new tests only
 - tests/test_models.py         new tests only
 - tests/test_capture.py        one new test, plus the one line named below
+- tests/test_modal.py          the one line named below, nothing else
+- tests/test_worker.py         the one line named below, nothing else
 
 CONTEXT
 - Slices 1-7b are merged; all 393 existing tests must stay green.
@@ -25,11 +27,14 @@ CONTEXT
 - Reuse store.transition_status / store.get_note, blob.delete_note,
   vectors.delete_vector (both deletes treat a missing item as success).
   worker.py does not change; its _remove_object stays private.
-- tests/test_capture.py:333 is `assert "response_url" not in source`. It
-  pinned Slice 1 req 8 (capture never calls response_url); capture must
-  now name the field. Replace that one line with
-  `assert "post_response_url" not in source and "urlopen" not in source`
-  and change no other existing line in that file.
+- Four existing lines pinned "capture never uses response_url" (Slice 1
+  req 8); capture must now name the field. Change exactly these lines
+  and no other existing line in those files:
+  - tests/test_capture.py:333, tests/test_modal.py:597 and
+    tests/test_worker.py:708, each `assert "response_url" not in source`
+    -> `assert "post_response_url" not in source and "urlopen" not in source`
+  - tests/test_models.py:47 `assert not hasattr(req, "response_url")`
+    -> `assert req.response_url == "https://hooks.slack.invalid/commands/T000TEST/1/abc"`
 - No network: pytest runs with --disable-socket. Test the transport by
   monkeypatching urllib.request.urlopen in slackkb.slack_api with a fake
   that records its Request and timeout; for a 4xx/5xx it raises
