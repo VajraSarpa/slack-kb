@@ -12,6 +12,7 @@ import urllib.parse
 from collections.abc import Mapping
 from typing import Any
 
+from slackkb import obs
 from slackkb.config import Settings
 from slackkb.models import Severity
 from slackkb.slack_api import SlackApiError, SlackClient
@@ -92,6 +93,7 @@ def _block_actions(payload: Mapping[str, Any], table: Any, slack: SlackClient) -
         logger.warning("block action ignored, wrong action_id=%s", action_id)
         return _empty()
     note_id = _get(action, "value")
+    obs.bind(note_id)
     trigger_id = payload.get("trigger_id")
     team_id = _get(payload, "team", "id")
     if not isinstance(note_id, str) or not note_id:
@@ -126,6 +128,7 @@ def _view_submission(payload: Mapping[str, Any], table: Any) -> dict[str, Any]:
         logger.warning("modal rejected, reason=wrong callback_id")
         return _response(400, "bad request")
     note_id = _get(payload, "view", "private_metadata")
+    obs.bind(note_id)
     value = _get(
         payload, "view", "state", "values", BLOCK_ID, SELECT_ACTION_ID, "selected_option", "value"
     )
@@ -163,6 +166,13 @@ def handle(
     event: Mapping[str, Any], *, table: Any, slack: SlackClient, settings: Settings, now: int
 ) -> dict:
     """Handle one API Gateway proxy event for Slack interactivity and return the response."""
+    with obs.trace():
+        return _handle(event, table=table, slack=slack, settings=settings, now=now)
+
+
+def _handle(
+    event: Mapping[str, Any], *, table: Any, slack: SlackClient, settings: Settings, now: int
+) -> dict:
     headers = event.get("headers") or {}
     try:
         body = _raw_body(event)

@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from slackkb import qa
+from slackkb import obs, qa
 from slackkb import retrieve as retrieve_mod
 from slackkb.config import Settings
 from slackkb.models import QuestionJob
@@ -57,6 +57,7 @@ def _process(
     except ValidationError:
         logger.warning("unparsable question job, message_id=%s", message_id)
         return False
+    obs.bind(job.event_id)
     try:
         notes = retrieve(job.question, job.team_id)
         if not notes:
@@ -81,11 +82,12 @@ def handle(
     event: Mapping[str, Any], *, retrieve: Retrieve, answer: Answer, slack: SlackClient
 ) -> dict:
     """Handle one SQS Lambda event; return the partial batch response."""
-    failures = [
-        {"itemIdentifier": record["messageId"]}
-        for record in event.get("Records") or []
-        if not _process(record, retrieve, answer, slack)
-    ]
+    failures = []
+    for record in event.get("Records") or []:
+        with obs.trace():
+            ok = _process(record, retrieve, answer, slack)
+        if not ok:
+            failures.append({"itemIdentifier": record["messageId"]})
     return {"batchItemFailures": failures}
 
 

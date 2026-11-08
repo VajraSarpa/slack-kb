@@ -14,6 +14,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from slackkb import obs
 from slackkb.config import Settings
 from slackkb.models import CaptureJob, CaptureRequest, Note, note_id
 from slackkb.queue import EnqueueError, send_capture_job
@@ -68,6 +69,13 @@ def handle(
     event: Mapping[str, Any], *, table: Any, sqs: Any, settings: Settings, now: int
 ) -> dict:
     """Handle one API Gateway proxy event for /bnote and return the proxy response."""
+    with obs.trace():
+        return _handle(event, table=table, sqs=sqs, settings=settings, now=now)
+
+
+def _handle(
+    event: Mapping[str, Any], *, table: Any, sqs: Any, settings: Settings, now: int
+) -> dict:
     headers = event.get("headers") or {}
     try:
         body = _raw_body(event)
@@ -102,6 +110,7 @@ def handle(
         user_id=request.user_id,
         text=request.text,
     )
+    obs.bind(note.note_id)
     if not put_if_absent(table, note):
         logger.info("duplicate capture, note_id=%s", note.note_id)
         return _ack(note.note_id)

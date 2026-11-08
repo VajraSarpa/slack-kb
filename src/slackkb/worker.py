@@ -11,6 +11,7 @@ from typing import Any
 from botocore.exceptions import BotoCoreError, ClientError
 from pydantic import ValidationError
 
+from slackkb import obs
 from slackkb.blob import delete_note, put_note
 from slackkb.embed import EmbedError
 from slackkb.models import CaptureJob, Note, NoteStatus
@@ -59,6 +60,7 @@ def _process(
     except ValidationError:
         logger.warning("unparsable capture job, message_id=%s", message_id)
         return False
+    obs.bind(job.note_id)
     try:
         note = get_note(table, job.note_id)
         if note is None:
@@ -181,9 +183,10 @@ def handle(
     Bedrock client and model id. Both arguments are required: no note is ROUTED without
     its vector (D-008).
     """
-    failures = [
-        {"itemIdentifier": record["messageId"]}
-        for record in event.get("Records") or []
-        if not _process(record, table, bucket, vectors_table, embed)
-    ]
+    failures = []
+    for record in event.get("Records") or []:
+        with obs.trace():
+            ok = _process(record, table, bucket, vectors_table, embed)
+        if not ok:
+            failures.append({"itemIdentifier": record["messageId"]})
     return {"batchItemFailures": failures}

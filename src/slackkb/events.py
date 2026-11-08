@@ -14,6 +14,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from slackkb import obs
 from slackkb.config import Settings
 from slackkb.dedup import DedupError, claim, release
 from slackkb.models import QuestionJob
@@ -61,6 +62,7 @@ def _handle_mention(
         return _response(400, "bad request")
 
     event_id = top["event_id"]
+    obs.bind(event_id)
     question = _MENTION_RE.sub("", inner["text"]).strip()
     if not question:
         logger.info("empty question ignored, event_id=%s", event_id)
@@ -106,6 +108,13 @@ def handle(
     event: Mapping[str, Any], *, events_table: Any, sqs: Any, settings: Settings, now: int
 ) -> dict:
     """Handle one API Gateway proxy event from the Slack Events API."""
+    with obs.trace():
+        return _handle(event, events_table=events_table, sqs=sqs, settings=settings, now=now)
+
+
+def _handle(
+    event: Mapping[str, Any], *, events_table: Any, sqs: Any, settings: Settings, now: int
+) -> dict:
     headers = event.get("headers") or {}
     try:
         body = _raw_body(event)
