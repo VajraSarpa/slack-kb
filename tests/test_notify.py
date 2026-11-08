@@ -84,9 +84,23 @@ def _client_error(code="InternalError"):
     return ClientError({"Error": {"Code": code, "Message": "m"}}, "Op")
 
 
+def _records(caplog):
+    return [r for r in caplog.records if r.name == "slackkb.notify"]
+
+
+def _only_warning(caplog, *needles):
+    records = _records(caplog)
+    assert [r.levelno for r in records] == [logging.WARNING]
+    message = records[0].getMessage()
+    for needle in needles:
+        assert needle in message
+    return message
+
+
 def test_failed_note_notifies_user(
-    slack_request, notes_table, notes_bucket, vectors_table, capture_queue
+    caplog, slack_request, notes_table, notes_bucket, vectors_table, capture_queue
 ):
+    caplog.set_level(logging.INFO, logger="slackkb.notify")
     sqs = boto3.client("sqs")
     capture.handle(
         slack_request(), table=notes_table, sqs=sqs, settings=Settings(), now=int(time.time())
@@ -110,6 +124,10 @@ def test_failed_note_notifies_user(
     assert get_note(notes_table, NOTE_ID).status is NoteStatus.FAILED
     assert post.calls == [(RESPONSE_URL, EXPECTED_TEXT)]
     assert result == {"batchItemFailures": []}
+    by_text = {r.getMessage().split(",")[0]: r for r in _records(caplog)}
+    assert by_text["note failed"].levelno == logging.INFO
+    assert by_text["user notified"].levelno == logging.INFO
+    assert all(r.levelno < logging.WARNING for r in _records(caplog))
 
 
 def test_failed_text_is_fixed():
@@ -127,11 +145,16 @@ def test_failed_note_object_and_vector_removed(notes_table, notes_bucket, vector
     assert post.calls == [(RESPONSE_URL, EXPECTED_TEXT)]
 
 
-def test_routed_note_gets_no_notice(notes_table, notes_bucket, vectors_table):
+def test_routed_note_gets_no_notice(caplog, notes_table, notes_bucket, vectors_table):
+    caplog.set_level(logging.INFO, logger="slackkb.notify")
     _seed(notes_table, notes_bucket, vectors_table, status=NoteStatus.ROUTED)
     post = Poster()
     result = _run(_event(_record("m1")), notes_table, notes_bucket, vectors_table, post)
     assert result == {"batchItemFailures": []}
+    records = _records(caplog)
+    assert len(records) == 1
+    assert records[0].levelno == logging.INFO
+    assert "no notice" in records[0].getMessage()
     assert post.calls == []
     assert get_note(notes_table, NOTE_ID).status is NoteStatus.ROUTED
     assert _present(notes_bucket, vectors_table)
@@ -147,13 +170,21 @@ def test_repeat_dlq_delivery_posts_again(notes_table, notes_bucket, vectors_tabl
     assert get_note(notes_table, NOTE_ID).status is NoteStatus.FAILED
 
 
-def test_missing_response_url_finishes_without_notice(notes_table, notes_bucket, vectors_table):
+def test_missing_response_url_finishes_without_notice(
+    caplog, notes_table, notes_bucket, vectors_table
+):
+    caplog.set_level(logging.INFO, logger="slackkb.notify")
     _seed(notes_table, notes_bucket, vectors_table)
     post = Poster()
     record = _record("m1", url=None)
     assert "response_url" in record["body"]  # serialized as null
     result = _run(_event(record), notes_table, notes_bucket, vectors_table, post)
     assert result == {"batchItemFailures": []}
+    warnings = [r for r in _records(caplog) if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert NOTE_ID in warnings[0].getMessage()
+    assert "m1" in warnings[0].getMessage()
+    caplog.clear()
     assert post.calls == []
     assert get_note(notes_table, NOTE_ID).status is NoteStatus.FAILED
     assert _gone(notes_bucket, vectors_table)
@@ -162,21 +193,23 @@ def test_missing_response_url_finishes_without_notice(notes_table, notes_bucket,
         "batchItemFailures": []
     }
     assert post.calls == []
+    _only_warning(caplog, NOTE_ID, "m2")
 
 
-@pytest.mark.parametrize("status", [403, 404])
-def test_post_4xx_is_not_retried(notes_table, notes_bucket, vectors_table, status):
+@pytest.mark.parametrize("status", [400, 403, 404, 499])
+def test_post_4xx_is_not_retried(caplog, notes_table, notes_bucket, vectors_table, status):
     _seed(notes_table, notes_bucket, vectors_table)
     post = Poster(ResponseUrlError("response_url returned status", status))
     result = _run(_event(_record("m1")), notes_table, notes_bucket, vectors_table, post)
     assert result == {"batchItemFailures": []}
     assert len(post.calls) == 1
     assert get_note(notes_table, NOTE_ID).status is NoteStatus.FAILED
+    _only_warning(caplog, f"status={status}", NOTE_ID, "m1")
 
 
 @pytest.mark.parametrize("status", [500, 503, None])
 def test_post_5xx_and_transport_error_are_retried(
-    notes_table, notes_bucket, vectors_table, status
+    caplog, notes_table, notes_bucket, vectors_table, status
 ):
     _seed(notes_table, notes_bucket, vectors_table)
     post = Poster(ResponseUrlError("failed", status))
@@ -184,11 +217,12 @@ def test_post_5xx_and_transport_error_are_retried(
     assert result == {"batchItemFailures": [{"itemIdentifier": "m1"}]}
     assert len(post.calls) == 1
     assert _gone(notes_bucket, vectors_table)
+    _only_warning(caplog, f"status={status}", NOTE_ID, "m1")
 
 
 @pytest.mark.parametrize("exc", [_client_error(), EndpointConnectionError(endpoint_url="http://x")])
 def test_store_error_is_retried(
-    monkeypatch, notes_table, notes_bucket, vectors_table, exc
+    caplog, monkeypatch, notes_table, notes_bucket, vectors_table, exc
 ):
     _seed(notes_table, notes_bucket, vectors_table)
 
@@ -202,38 +236,47 @@ def test_store_error_is_retried(
     assert post.calls == []
     assert get_note(notes_table, NOTE_ID).status is NoteStatus.CAPTURED
     assert _present(notes_bucket, vectors_table)
+    _only_warning(caplog, type(exc).__name__, NOTE_ID, "m1")
 
 
-def test_store_error_on_reread_is_retried(monkeypatch, notes_table, notes_bucket, vectors_table):
+@pytest.mark.parametrize("exc", [_client_error(), EndpointConnectionError(endpoint_url="http://x")])
+def test_store_error_on_reread_is_retried(
+    caplog, monkeypatch, notes_table, notes_bucket, vectors_table, exc
+):
     _seed(notes_table, notes_bucket, vectors_table, status=NoteStatus.ROUTED)
 
     def boom(table, note_id):
-        raise _client_error()
+        raise exc
 
     monkeypatch.setattr(notify, "get_note", boom)
     post = Poster()
     result = _run(_event(_record("m1")), notes_table, notes_bucket, vectors_table, post)
     assert result == {"batchItemFailures": [{"itemIdentifier": "m1"}]}
     assert post.calls == []
+    _only_warning(caplog, type(exc).__name__, NOTE_ID, "m1")
 
 
-def test_missing_note_on_reread_finishes(monkeypatch, notes_table, notes_bucket, vectors_table):
+def test_missing_note_on_reread_finishes(
+    caplog, monkeypatch, notes_table, notes_bucket, vectors_table
+):
     _seed(notes_table, notes_bucket, vectors_table, status=NoteStatus.ROUTED)
     monkeypatch.setattr(notify, "get_note", lambda table, note_id: None)
     post = Poster()
     result = _run(_event(_record("m1")), notes_table, notes_bucket, vectors_table, post)
     assert result == {"batchItemFailures": []}
     assert post.calls == []
+    _only_warning(caplog, NOTE_ID, "m1")
 
 
+@pytest.mark.parametrize("exc", [_client_error(), EndpointConnectionError(endpoint_url="http://x")])
 @pytest.mark.parametrize("which", ["delete_note", "delete_vector"])
 def test_delete_error_is_retried_before_post(
-    monkeypatch, notes_table, notes_bucket, vectors_table, which
+    caplog, monkeypatch, notes_table, notes_bucket, vectors_table, which, exc
 ):
     _seed(notes_table, notes_bucket, vectors_table)
 
     def boom(*args):
-        raise _client_error()
+        raise exc
 
     monkeypatch.setattr(notify, which, boom)
     post = Poster()
@@ -241,6 +284,7 @@ def test_delete_error_is_retried_before_post(
     assert result == {"batchItemFailures": [{"itemIdentifier": "m1"}]}
     assert post.calls == []
     assert get_note(notes_table, NOTE_ID).status is NoteStatus.FAILED
+    _only_warning(caplog, type(exc).__name__, NOTE_ID, "m1")
 
 
 def test_delete_error_retry_then_success(monkeypatch, notes_table, notes_bucket, vectors_table):
@@ -257,7 +301,10 @@ def test_delete_error_retry_then_success(monkeypatch, notes_table, notes_bucket,
     assert _gone(notes_bucket, vectors_table)
 
 
-def test_unparsable_job_and_missing_note_finish(notes_table, notes_bucket, vectors_table):
+def test_unparsable_job_and_missing_note_finish(
+    caplog, notes_table, notes_bucket, vectors_table
+):
+    caplog.set_level(logging.INFO, logger="slackkb.notify")
     post = Poster()
     records = [
         {"messageId": "bad1", "receiptHandle": "rh", "body": "not json"},
@@ -268,6 +315,12 @@ def test_unparsable_job_and_missing_note_finish(notes_table, notes_bucket, vecto
     result = _run(_event(*records), notes_table, notes_bucket, vectors_table, post)
     assert result == {"batchItemFailures": []}
     assert post.calls == []
+    logged = _records(caplog)
+    assert [r.levelno for r in logged] == [logging.WARNING] * 4
+    messages = [r.getMessage() for r in logged]
+    for message, message_id in zip(messages, ["bad1", "bad2", "bad3", "gone"], strict=True):
+        assert f"message_id={message_id}" in message
+    assert NOTE_ID in messages[3]
 
 
 def test_mixed_batch_reports_only_retries(notes_table, notes_bucket, vectors_table):
