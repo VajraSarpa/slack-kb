@@ -292,3 +292,12 @@ Logged after the fact; times approximate (local).
 - 10:15:52–10:25:39 EST Vajra ran the task (`prompts/s7-timeout.md`, 4 SCOPE paths, tee `docs/runs/s7-timeout.md`): personal_a59275d2, ready attempt 1, $0.2393 notional, $0 spent. Claude in the worktree: 393 passed, ruff, eval 0; 7 operator mutants (scratchpad mut7t.py) killed; md5 unchanged after. [observed; manual verification]
 - 10:27 records written; apply pending. [observed]
 - 10:28 `prama apply personal_a59275d2` (Vajra): apply review PASS, 0 findings, $0.0248; merged `9d602e1`; Claude reran main: 393 passed, ruff clean. 10:29 HANDOFFs updated. [observed; manual verification]
+
+## 2026-11-08 — Slice 2b prep (D-018, prompt)
+- 10:31 preflight: slack-kb main `1664f07` clean = HANDOFF; Prama install editable (no reinstall); `~/.prama/projects/slack-kb.yaml` present.
+- 10:33 Vajra picked 2b before 9 (Claude's recommendation: Slice 9 then covers the DLQ handler).
+- 10:33–10:36 found by reading code: nothing sets FAILED; `response_url` never stored; a DLQ'd note's S3 object/vector would be orphaned (worker's FAILED cleanup needs a worker delivery that never comes). Folded into D-018. [judgment]
+- 10:33–10:36 D-018 written and SLICES row 2b edited (scope `worker` → `capture`; depends + D-018) under the standing delegation. Judgment calls taken by Claude, shown to Vajra: response_url on the job (optional), notice doesn't echo note text, at-least-once notice, 4xx permanent. [judgment; deferred to Vajra for a yes]
+- 10:33–10:36 existing pin `tests/test_capture.py:333` (`"response_url" not in source`) conflicts with capture copying the field; prompt allows replacing that one line with a no-call pin, instead of dodging the literal via a helper. [judgment]
+- 10:36 moto redrive checked by hand: after 3 receives the DLQ is empty; the 4th receive moves it. Claude's first prompt draft said 3 → fixed before the run. [manual verification; Claude's slip caught]
+- 10:36 operator slip: first wrote 10:35–10:44 ahead of `date` (actual 10:36); corrected to shell times. [Claude's slip]

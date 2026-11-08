@@ -151,3 +151,31 @@
         the 3 s trigger_id), so a slow Slack reply doesn't turn a landed
         post into a retry. A worker-side "answered" marker waits for Slice 9
         logs to show repeat answers for one event_id.
+- D-018 (2026-11-08) Failure notice (Slice 2b, D-010). response_url
+        rides on the CaptureJob, not the note: it is a short-lived bearer
+        URL, so it stays out of DynamoDB and S3 (D-014), and SQS moves the
+        job body to the DLQ unchanged. CaptureRequest and CaptureJob gain
+        an optional response_url that must start with https:// when
+        present; capture copies it from the form onto the job and never
+        calls it (D-010). Optional so a job without one still parses: the
+        worker ignores the field, and notify logs that the user can't be
+        told. notify.py handles the capture DLQ (an SQS batch handler like
+        the worker): parse the job; move CAPTURED -> FAILED (D-009, the
+        conditional update); a ROUTED note gets no notice; a FAILED note
+        (repeat DLQ delivery) is handled again. A FAILED note keeps no S3
+        object or vector (D-014): notify deletes both, because no worker
+        delivery follows once the message is in the DLQ. Then it posts
+        {"response_type": "ephemeral", "text": FAILED_TEXT} to the
+        response_url through slack_api (no bot token, 10 s timeout as in
+        the D-017 amendment; success is any 2xx status, the body is not
+        read). The notice doesn't echo the note text. At-least-once: a
+        redelivered DLQ job may post twice, as in D-017. A 4xx reply
+        (expired or used-up URL; Slack allows 30 min) is permanent: logged,
+        job done. A 5xx, a transport error, or a store/S3/vector error is a
+        batch item failure, so SQS redelivers; once the 30 min pass the URL
+        expires and the 4xx ends it. An unparsable job or a missing note is
+        logged and done (there is no further queue). Never logged: the
+        response_url, the note text. For Vajra in infra/ (Slice 8): the
+        capture DLQ gets notify as its event source, and maxReceiveCount x
+        the visibility timeout should land jobs in the DLQ well inside
+        30 min, or the notice can't be delivered.
