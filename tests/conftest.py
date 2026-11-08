@@ -18,6 +18,10 @@ CAPTURE_DLQ = "slackkb-capture-dlq-test"
 NOTES_BUCKET = "slackkb-notes-test"
 VECTORS_TABLE = "slackkb-note-vectors-test"
 EMBED_MODEL_ID = "amazon.titan-embed-text-v2:0"
+EVENTS_TABLE = "slackkb-events-test"
+QUESTION_QUEUE = "slackkb-question-test"
+QUESTION_DLQ = "slackkb-question-dlq-test"
+QUESTION_QUEUE_URL = f"https://sqs.us-east-1.amazonaws.com/123456789012/{QUESTION_QUEUE}"
 MAX_RECEIVES = 3
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -36,6 +40,8 @@ def offline_env(monkeypatch):
     monkeypatch.setenv("SLACKKB_QA_MODEL_ID", "us.anthropic.claude-haiku-test")
     monkeypatch.setenv("SLACKKB_VECTORS_TABLE", VECTORS_TABLE)
     monkeypatch.setenv("SLACKKB_EMBED_MODEL_ID", EMBED_MODEL_ID)
+    monkeypatch.setenv("SLACKKB_EVENTS_TABLE", EVENTS_TABLE)
+    monkeypatch.setenv("SLACKKB_QUESTION_QUEUE_URL", QUESTION_QUEUE_URL)
 
 
 @pytest.fixture
@@ -78,6 +84,22 @@ def vectors_table(aws):
     )
 
 
+@pytest.fixture
+def events_table(aws):
+    """Events API dedup table (D-011): PK event_id, TTL on expires_at."""
+    table = boto3.resource("dynamodb").create_table(
+        TableName=EVENTS_TABLE,
+        KeySchema=[{"AttributeName": "event_id", "KeyType": "HASH"}],
+        AttributeDefinitions=[{"AttributeName": "event_id", "AttributeType": "S"}],
+        BillingMode="PAY_PER_REQUEST",
+    )
+    boto3.client("dynamodb").update_time_to_live(
+        TableName=EVENTS_TABLE,
+        TimeToLiveSpecification={"Enabled": True, "AttributeName": "expires_at"},
+    )
+    return table
+
+
 @dataclass
 class Queues:
     url: str
@@ -98,6 +120,23 @@ def capture_queue(aws, monkeypatch):
         Attributes={"RedrivePolicy": json.dumps(redrive)},
     )["QueueUrl"]
     monkeypatch.setenv("SLACKKB_CAPTURE_QUEUE_URL", url)
+    return Queues(url=url, dlq_url=dlq_url)
+
+
+@pytest.fixture
+def question_queue(aws):
+    """Question queue with its own redrive DLQ (D-017); URL is in offline_env."""
+    sqs = boto3.client("sqs")
+    dlq_url = sqs.create_queue(QueueName=QUESTION_DLQ)["QueueUrl"]
+    dlq_arn = sqs.get_queue_attributes(
+        QueueUrl=dlq_url, AttributeNames=["QueueArn"]
+    )["Attributes"]["QueueArn"]
+    redrive = {"deadLetterTargetArn": dlq_arn, "maxReceiveCount": str(MAX_RECEIVES)}
+    url = sqs.create_queue(
+        QueueName=QUESTION_QUEUE,
+        Attributes={"RedrivePolicy": json.dumps(redrive)},
+    )["QueueUrl"]
+    assert url == QUESTION_QUEUE_URL
     return Queues(url=url, dlq_url=dlq_url)
 
 
@@ -160,5 +199,51 @@ def slack_interaction():
             "X-Slack-Signature": sign(body, ts, secret),
         }
         return {"headers": headers, "body": body, "isBase64Encoded": False}
+
+    return make
+
+
+_KEEP = object()
+
+
+@pytest.fixture
+def slack_event():
+    """Build a signed Events API request (JSON body) from a fixture.
+
+    kind is "app_mention" (an event_callback) or "url_verification".
+    text/event_id/bot_id/subtype/thread_ts override the app_mention event;
+    thread_ts=None removes it (a top-level mention). retry sets
+    X-Slack-Retry-Num. body= sends that raw string instead (still signed).
+    """
+
+    def make(kind="app_mention", *, text=None, event_id=None, bot_id=None,
+             subtype=None, thread_ts=_KEEP, retry=None, ts=None,
+             secret=SIGNING_SECRET, body=None):
+        payload = json.loads((FIXTURES / f"{kind}.json").read_text())
+        if kind == "app_mention":
+            event = payload["event"]
+            if text is not None:
+                event["text"] = text
+            if event_id is not None:
+                payload["event_id"] = event_id
+            if bot_id is not None:
+                event["bot_id"] = bot_id
+            if subtype is not None:
+                event["subtype"] = subtype
+            if thread_ts is None:
+                event.pop("thread_ts", None)
+            elif thread_ts is not _KEEP:
+                event["thread_ts"] = thread_ts
+        raw = json.dumps(payload) if body is None else body
+        ts = int(time.time()) if ts is None else ts
+        headers = {
+            "Content-Type": "application/json",
+            "X-Slack-Request-Timestamp": str(ts),
+            "X-Slack-Signature": sign(raw, ts, secret),
+        }
+        if retry is not None:
+            headers["X-Slack-Retry-Num"] = str(retry)
+            headers["X-Slack-Retry-Reason"] = "http_timeout"
+        return {"headers": headers, "body": raw, "isBase64Encoded": False}
 
     return make

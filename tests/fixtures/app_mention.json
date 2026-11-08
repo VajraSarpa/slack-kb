@@ -1,0 +1,20 @@
+{
+  "token": "deprecated-verification-token",
+  "team_id": "T000TEST",
+  "api_app_id": "A000TEST",
+  "event": {
+    "type": "app_mention",
+    "user": "U000TEST",
+    "text": "<@U0BOTTEST> how do we rotate the signing secret?",
+    "ts": "1762600000.000200",
+    "channel": "C000TEST",
+    "thread_ts": "1762600000.000100",
+    "event_ts": "1762600000.000200"
+  },
+  "type": "event_callback",
+  "event_id": "Ev000TEST0001",
+  "event_time": 1762600000,
+  "authorizations": [
+    {"team_id": "T000TEST", "user_id": "U0BOTTEST", "is_bot": true}
+  ]
+}

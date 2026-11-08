@@ -118,3 +118,29 @@
         qa makes no Slack calls (Slice 7 turns QaError into the ephemeral
         message). Question and note text are never logged. Settings gains a
         required qa_model_id (SLACKKB_QA_MODEL_ID), no default (D-012).
+- D-017 (2026-11-08) Thread replies (Slice 7, split 7a/7b). The bot
+        answers app_mention events only, never every message (Vajra): no
+        per-message cost, no guessing what is a question (A0 #7). An event
+        with a bot_id or a subtype is ignored, so the bot never answers
+        itself. The question is the event text with every mention token
+        (<@U...> or <@U...|name>) removed and whitespace stripped; an empty
+        question gets no work. 7a, ingress (events.py), D-011 in order:
+        verify the signature (url_verification is answered only after it,
+        A0 #5), claim event_id in the events table (conditional put;
+        expires_at = now + 3600 is the TTL attribute), then send a
+        QuestionJob (event_id, team_id, channel, user, thread_ts, question)
+        to its own SQS queue with its own DLQ (D-004), not the capture
+        queue, and reply 200. thread_ts is the event's thread_ts, or its ts
+        when the mention is top-level, so the reply always lands in a
+        thread. 7b, the question worker (thread.py): retrieve (D-008), then
+        answer_question (D-016), then chat.postMessage in the thread with
+        the bot token (D-013): the answer, then the cited note_ids. No
+        notes -> a reply that names the query it ran (D-008). QaError -> an
+        ephemeral "couldn't answer" to the asking user in that thread
+        (chat.postEphemeral; D-016) and the job is done, not retried. Any
+        other failure (embedding, vector read, S3, a Slack post) is a batch
+        item failure, so SQS retries and the DLQ applies. Text the bot
+        echoes or relays (the query, the model's answer) has Slack's &, <, >
+        escaped so it can't ping @channel or forge a link. Question text is
+        never logged. The events table and question queue are Vajra's to add
+        in infra/ (Slice 8).
