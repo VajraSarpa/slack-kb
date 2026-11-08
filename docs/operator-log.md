@@ -275,3 +275,7 @@ Logged after the fact; times approximate (local).
 - Claude in the worktree: 363 passed, ruff clean, `prama eval` 0 findings; diff = the 10 SCOPE paths (+626/−2); 15 operator mutants all killed (scratchpad mut7a.py); events.py/dedup.py md5 unchanged after, diff stat unchanged. [manual verification]
 - Open minor (reviewer, both reviews): a thread_ts present but empty/non-string silently falls back to ts. Harmless (Slack sends a string or nothing); leave unless Vajra wants a 400. [judgment]
 - 09:34 records written; apply pending (Vajra). [observed]
+- 09:35–09:36 EST `prama apply personal_951da5c8` (Vajra): recheck, apply review PASS with 0 findings ($0.0582 notional; memory d-011, d-017 among those given), merged `73e83f0`. Claude reran on main: 363 passed, ruff clean. Slice 7a done; total $1.2068 notional, $0 spent. [observed; manual verification]
+- 09:38 7b prompt drafting started. [observed]
+- Prompt `prompts/s7b-thread.md` (SCOPE: thread.py, slack_api.py, tests/test_thread.py, tests/test_slack_api.py, = SLICES 7b). Exact reply formats fixed in the prompt so tests can pin values; every "logs" clause has a named test (7a lesson); bind() wires the real retrieve + answer_question (SLICES "real retrieve wired in here"), proved by one moto+Stubber test. [judgment]
+- Not in D-017: an SQS redelivery after a successful post posts twice; listed as an accepted NON-GOAL instead of a second claim in the worker. Vajra may want a decision. [judgment; deferred to Vajra]
