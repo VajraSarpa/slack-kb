@@ -59,6 +59,19 @@ def test_ask_returns_tool_input(client):
     assert result == {"answer": "hello"}
 
 
+def test_ask_returns_first_tool_use_input(client):
+    response = tool_response({})
+    response["output"]["message"]["content"] = [
+        {"text": "thinking"},
+        {"toolUse": {"toolUseId": "a", "name": "answer", "input": {"answer": "A"}}},
+        {"toolUse": {"toolUseId": "b", "name": "answer", "input": {"answer": "B"}}},
+    ]
+    with Stubber(client) as stub:
+        stub.add_response("converse", response)
+        result = llm.ask(client, model_id="m", system="s", user="u", tool=TOOL)
+    assert result == {"answer": "A"}
+
+
 def test_ask_without_tool_use_raises(client):
     response = tool_response({})
     response["output"]["message"]["content"] = [{"text": "just text"}]

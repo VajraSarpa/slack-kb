@@ -86,14 +86,45 @@ def test_request_shape(client):
 
 def test_unknown_cited_id_dropped_and_logged(client, caplog):
     notes = three_notes()
-    payload = {"answer": "x", "cited_note_ids": ["n2", "ghost", "n2", "n1"]}
+    payload = {"answer": "x", "cited_note_ids": ["n2", "ghost", "n2", "n1", "ghost2"]}
     with Stubber(client) as stub:
         stub.add_response("converse", tool_response(payload))
         with caplog.at_level(logging.WARNING):
             result = qa.answer_question("q", notes, client=client, model_id=MODEL_ID)
     assert result.cited_note_ids == ["n2", "n1"]
     warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
-    assert any("ghost" in r.getMessage() for r in warnings)
+    assert len(warnings) == 1
+    message = warnings[0].getMessage()
+    assert "2" in message
+    assert "ghost" not in message
+
+
+def test_dropped_id_carrying_note_text_is_not_logged(client, caplog):
+    notes = three_notes()
+    question = "what is the secret question?"
+    payload = {"answer": "x", "cited_note_ids": ["alpha", question, "n1"]}
+    with Stubber(client) as stub:
+        stub.add_response("converse", tool_response(payload))
+        with caplog.at_level(logging.DEBUG):
+            result = qa.answer_question(question, notes, client=client, model_id=MODEL_ID)
+    assert result.cited_note_ids == ["n1"]
+    for record in caplog.records:
+        text = record.getMessage()
+        assert "alpha" not in text
+        assert question not in text
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "2" in warnings[0].getMessage()
+
+
+def test_no_warning_when_nothing_dropped(client, caplog):
+    payload = {"answer": "x", "cited_note_ids": ["n1", "n2", "n1"]}
+    with Stubber(client) as stub:
+        stub.add_response("converse", tool_response(payload))
+        with caplog.at_level(logging.WARNING):
+            result = qa.answer_question("q", three_notes(), client=client, model_id=MODEL_ID)
+    assert result.cited_note_ids == ["n1", "n2"]
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
 
 
 def test_no_notes_skips_bedrock(client):
