@@ -1,5 +1,12 @@
 import pytest
-from conftest import BOT_TOKEN, NOTES_BUCKET, NOTES_TABLE, SIGNING_SECRET
+from conftest import (
+    BOT_TOKEN,
+    EMBED_MODEL_ID,
+    NOTES_BUCKET,
+    NOTES_TABLE,
+    SIGNING_SECRET,
+    VECTORS_TABLE,
+)
 from pydantic import SecretStr, ValidationError
 
 from slackkb.config import Settings
@@ -22,6 +29,19 @@ def test_reads_prefixed_env():
 
 def test_missing_signing_secret_fails(monkeypatch):
     monkeypatch.delenv("SLACKKB_SIGNING_SECRET")
+    with pytest.raises(ValidationError):
+        Settings()
+
+
+def test_reads_vectors_settings():
+    s = Settings()
+    assert s.vectors_table == VECTORS_TABLE
+    assert s.embed_model_id == EMBED_MODEL_ID
+
+
+@pytest.mark.parametrize("name", ["SLACKKB_VECTORS_TABLE", "SLACKKB_EMBED_MODEL_ID"])
+def test_missing_vectors_settings_fail(monkeypatch, name):
+    monkeypatch.delenv(name)
     with pytest.raises(ValidationError):
         Settings()
 

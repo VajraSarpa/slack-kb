@@ -17,3 +17,5 @@ class Settings(BaseSettings):
     capture_queue_url: str
     slack_bot_token: SecretStr
     qa_model_id: str
+    vectors_table: str
+    embed_model_id: str
