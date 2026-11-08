@@ -7,7 +7,7 @@ SCOPE (only these paths may change)
 - tests/test_slack_api.py      one new test
 
 CONTEXT
-- Slice 2b is merged; all 421 existing tests must stay green.
+- Slice 2b is merged (`ce6f226`); all 421 existing tests must stay green.
 - docs/DECISIONS.md D-018 is the spec. src/slackkb/notify.py and
   src/slackkb/slack_api.py are correct as they stand and must not change.
 - Found at review and confirmed by operator mutants, each of which
@@ -27,9 +27,10 @@ REQUIREMENTS (each one a test that fails if the named line is broken)
    slackkb.notify whose message contains the exception class name (e.g.
    "ClientError", "EndpointConnectionError"), the note_id and the
    message_id.
-2. A post that raises ResponseUrlError with status 403, 404, 500, and
-   None gives a WARNING whose message contains "status=403",
-   "status=404", "status=500", "status=None" respectively.
+2. A post that raises ResponseUrlError with status 400, 403, 404, 499,
+   500, and None gives a WARNING whose message contains "status=<code>"
+   ("status=None" for None); 400 and 499 are not retried, 500 and None
+   are (the 4xx range edges, found at apply review).
 3. Each "done, logged" path gives a WARNING (not INFO): unparsable job,
    note not found on the transition, note gone on re-read, no
    response_url.
