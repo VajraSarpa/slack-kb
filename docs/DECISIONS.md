@@ -144,3 +144,10 @@
         escaped so it can't ping @channel or forge a link. Question text is
         never logged. The events table and question queue are Vajra's to add
         in infra/ (Slice 8).
+        Amended 2026-11-08 (Vajra): the question worker is at-least-once.
+        chat.postMessage has no idempotency key, so a redelivered job may
+        post a second reply; that is accepted over losing one (A0 #1). The
+        worker's Slack calls use a 10 s timeout (views.open keeps 2.5 s for
+        the 3 s trigger_id), so a slow Slack reply doesn't turn a landed
+        post into a retry. A worker-side "answered" marker waits for Slice 9
+        logs to show repeat answers for one event_id.
