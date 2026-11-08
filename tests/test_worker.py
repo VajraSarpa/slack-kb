@@ -12,8 +12,10 @@ from conftest import BOT_TOKEN, SIGNING_SECRET, sign
 
 from slackkb import blob, capture, worker
 from slackkb.config import Settings
+from slackkb.embed import DIMENSIONS, EmbedError
 from slackkb.models import CaptureJob, Note, NoteStatus
 from slackkb.store import NoteNotFoundError, StoreError, get_note, put_if_absent
+from slackkb.vectors import list_vectors, put_vector
 
 SRC = Path(__file__).parent.parent / "src" / "slackkb"
 TEAM_ID = "T000TEST"
@@ -50,6 +52,30 @@ def _job(note_id):
 
 def _failures(resp):
     return sorted(f["itemIdentifier"] for f in resp["batchItemFailures"])
+
+
+class _MemoryVectors:
+    """In-memory stand-in for the note_vectors Table, for tests that predate Slice 6."""
+
+    def __init__(self):
+        self.items = {}
+
+    def put_item(self, Item):
+        self.items[(Item["team_id"], Item["note_id"])] = Item
+
+    def delete_item(self, Key):
+        self.items.pop((Key["team_id"], Key["note_id"]), None)
+
+
+def _handle_v(event, *, table, bucket):
+    """worker.handle with the Slice 6 arguments bound to an in-memory vector store."""
+    return worker.handle(
+        event,
+        table=table,
+        bucket=bucket,
+        vectors_table=_MemoryVectors(),
+        embed=lambda text: [0.0] * DIMENSIONS,
+    )
 
 
 def test_ack_before_processing(slack_request, notes_table, capture_queue):
@@ -129,7 +155,7 @@ def test_failed_delete_after_failed_enqueue_still_returns_retry(
 
 def test_worker_marks_routed(notes_table, notes_bucket):
     _put(notes_table, "a" * 32)
-    resp = worker.handle(
+    resp = _handle_v(
         {"Records": [_record("m1", _job("a" * 32))]}, table=notes_table, bucket=notes_bucket
     )
     assert resp == {"batchItemFailures": []}
@@ -146,7 +172,7 @@ def test_worker_reports_partial_failure(notes_table, notes_bucket):
             _record("missing-note", _job("b" * 32)),
         ]
     }
-    resp = worker.handle(event, table=notes_table, bucket=notes_bucket)
+    resp = _handle_v(event, table=notes_table, bucket=notes_bucket)
     assert _failures(resp) == ["missing-note", "not-json", "wrong-shape"]
     assert get_note(notes_table, "a" * 32).status is NoteStatus.ROUTED
     assert get_note(notes_table, "b" * 32) is None
@@ -166,7 +192,7 @@ def test_worker_reports_store_error(aws, notes_bucket, kind):
         table = boto3.resource("dynamodb").Table("no-such-table")
     else:
         table = _BrokenTable()
-    resp = worker.handle(
+    resp = _handle_v(
         {"Records": [_record("m1", _job("a" * 32))]}, table=table, bucket=notes_bucket
     )
     assert _failures(resp) == ["m1"]
@@ -175,10 +201,10 @@ def test_worker_reports_store_error(aws, notes_bucket, kind):
 def test_worker_is_idempotent(notes_table, notes_bucket):
     _put(notes_table, "a" * 32)
     event = {"Records": [_record("m1", _job("a" * 32))]}
-    assert worker.handle(event, table=notes_table, bucket=notes_bucket) == {
+    assert _handle_v(event, table=notes_table, bucket=notes_bucket) == {
         "batchItemFailures": []
     }
-    assert worker.handle(event, table=notes_table, bucket=notes_bucket) == {
+    assert _handle_v(event, table=notes_table, bucket=notes_bucket) == {
         "batchItemFailures": []
     }
     items = notes_table.scan()["Items"]
@@ -188,7 +214,7 @@ def test_worker_is_idempotent(notes_table, notes_bucket):
 
 def test_worker_leaves_failed_note_alone(notes_table, notes_bucket):
     _put(notes_table, "a" * 32, status=NoteStatus.FAILED)
-    resp = worker.handle(
+    resp = _handle_v(
         {"Records": [_record("m1", _job("a" * 32))]}, table=notes_table, bucket=notes_bucket
     )
     assert resp == {"batchItemFailures": []}
@@ -206,7 +232,7 @@ def _keys(bucket):
 def test_worker_writes_okf_then_routes(notes_table, notes_bucket):
     note_id = "a" * 32
     _put(notes_table, note_id)
-    resp = worker.handle(_event(note_id), table=notes_table, bucket=notes_bucket)
+    resp = _handle_v(_event(note_id), table=notes_table, bucket=notes_bucket)
     assert resp == {"batchItemFailures": []}
     parsed = blob.get_note(notes_bucket, TEAM_ID, note_id)
     assert parsed is not None
@@ -242,7 +268,7 @@ def test_worker_s3_failure_keeps_captured(notes_table, caplog, kind):
     else:
         exc = EndpointConnectionError(endpoint_url="https://s3.invalid")
     with caplog.at_level(logging.DEBUG, logger="slackkb"):
-        resp = worker.handle(
+        resp = _handle_v(
             _event(note_id, "m-s3"), table=notes_table, bucket=_RaisingBucket(exc)
         )
     assert _failures(resp) == ["m-s3"]
@@ -271,7 +297,7 @@ def test_worker_route_failure_after_write_is_a_batch_failure(
     _put(notes_table, note_id)
     monkeypatch.setattr(worker, "route_note", boom)
     with caplog.at_level(logging.WARNING, logger="slackkb"):
-        resp = worker.handle(_event(note_id, "m-route"), table=notes_table, bucket=notes_bucket)
+        resp = _handle_v(_event(note_id, "m-route"), table=notes_table, bucket=notes_bucket)
     assert _failures(resp) == ["m-route"]
     assert blob.get_note(notes_bucket, TEAM_ID, note_id) is not None
     assert get_note(notes_table, note_id).status is NoteStatus.CAPTURED
@@ -282,7 +308,7 @@ def test_worker_route_failure_after_write_is_a_batch_failure(
 def test_worker_missing_note_warns_and_writes_nothing(notes_table, notes_bucket, caplog):
     note_id = "b" * 32
     with caplog.at_level(logging.WARNING, logger="slackkb"):
-        resp = worker.handle(_event(note_id, "m-gone"), table=notes_table, bucket=notes_bucket)
+        resp = _handle_v(_event(note_id, "m-gone"), table=notes_table, bucket=notes_bucket)
     assert _failures(resp) == ["m-gone"]
     assert _keys(notes_bucket) == []
     warnings = [r.getMessage() for r in caplog.records if r.name.startswith("slackkb")]
@@ -291,7 +317,7 @@ def test_worker_missing_note_warns_and_writes_nothing(notes_table, notes_bucket,
 
 def test_worker_failed_note_writes_nothing(notes_table, notes_bucket):
     _put(notes_table, "a" * 32, status=NoteStatus.FAILED)
-    resp = worker.handle(_event(), table=notes_table, bucket=notes_bucket)
+    resp = _handle_v(_event(), table=notes_table, bucket=notes_bucket)
     assert resp == {"batchItemFailures": []}
     assert _keys(notes_bucket) == []
     assert get_note(notes_table, "a" * 32).status is NoteStatus.FAILED
@@ -300,7 +326,7 @@ def test_worker_failed_note_writes_nothing(notes_table, notes_bucket):
 def test_worker_routes_and_drops_text(notes_table, notes_bucket):
     note_id = "a" * 32
     _put(notes_table, note_id)
-    resp = worker.handle(_event(note_id), table=notes_table, bucket=notes_bucket)
+    resp = _handle_v(_event(note_id), table=notes_table, bucket=notes_bucket)
     assert resp == {"batchItemFailures": []}
     parsed = blob.get_note(notes_bucket, TEAM_ID, note_id)
     assert parsed is not None
@@ -334,7 +360,7 @@ def test_worker_redelivery_of_routed_note_writes_nothing(notes_table, caplog):
 def test_worker_failed_note_keeps_text(notes_table, notes_bucket):
     note_id = "a" * 32
     _put(notes_table, note_id, status=NoteStatus.FAILED)
-    resp = worker.handle(_event(note_id), table=notes_table, bucket=notes_bucket)
+    resp = _handle_v(_event(note_id), table=notes_table, bucket=notes_bucket)
     assert resp == {"batchItemFailures": []}
     assert _keys(notes_bucket) == []
     assert notes_table.get_item(Key={"note_id": note_id})["Item"]["text"] == "t"
@@ -348,7 +374,7 @@ def _worker_records(caplog, level):
 
 def _run(notes_table, bucket, caplog, note_id="a" * 32, message_id="m1"):
     with caplog.at_level(logging.DEBUG, logger="slackkb"):
-        return worker.handle(_event(note_id, message_id), table=notes_table, bucket=bucket)
+        return _handle_v(_event(note_id, message_id), table=notes_table, bucket=bucket)
 
 
 def test_worker_logs_failed_note_not_written(notes_table, notes_bucket, caplog):
@@ -520,7 +546,7 @@ def test_worker_failed_note_deletes_object(notes_table, notes_bucket, monkeypatc
     calls = []
     real = worker.delete_note
     monkeypatch.setattr(worker, "delete_note", lambda *a: (calls.append(a), real(*a))[1])
-    assert worker.handle(_event(note_id), table=notes_table, bucket=notes_bucket) == {
+    assert _handle_v(_event(note_id), table=notes_table, bucket=notes_bucket) == {
         "batchItemFailures": []
     }
     assert calls == [(notes_bucket, TEAM_ID, note_id)]
@@ -610,7 +636,7 @@ def test_worker_logs_never_contain_secrets(notes_table, notes_bucket, caplog, mo
         _run(table, bucket, caplog, note_id=note_id, message_id=f"m-{note_id[0]}")
 
     with caplog.at_level(logging.DEBUG, logger="slackkb"):
-        worker.handle(
+        _handle_v(
             {"Records": [_record("m-bad", raw_body)]}, table=notes_table, bucket=notes_bucket
         )
     run(put("0"))
@@ -680,3 +706,143 @@ def test_handlers_import_no_boto3(name, boundaries):
             assert module != banned and not module.startswith(banned + "."), module
     assert boundaries <= modules
     assert "response_url" not in source
+
+
+# --- Slice 6: vector write between S3 and ROUTED (D-008) ---
+
+
+def _vec(x=0.5):
+    return [x] * DIMENSIONS
+
+
+def _handle(event, notes_table, bucket, vectors_table, embed):
+    return worker.handle(
+        event, table=notes_table, bucket=bucket, vectors_table=vectors_table, embed=embed
+    )
+
+
+def test_worker_writes_s3_then_vector_then_routes(
+    notes_table, notes_bucket, vectors_table, monkeypatch
+):
+    note_id = "a" * 32
+    _put(notes_table, note_id)
+    order = []
+    real_put, real_vec, real_route = worker.put_note, worker.put_vector, worker.route_note
+    monkeypatch.setattr(worker, "put_note", lambda *a: (order.append("s3"), real_put(*a))[1])
+    monkeypatch.setattr(worker, "put_vector", lambda *a: (order.append("vector"), real_vec(*a))[1])
+    monkeypatch.setattr(worker, "route_note", lambda *a: (order.append("route"), real_route(*a))[1])
+
+    def embed(text):
+        order.append("embed")
+        assert text == "t"
+        return _vec()
+
+    assert _handle(_event(note_id), notes_table, notes_bucket, vectors_table, embed) == {
+        "batchItemFailures": []
+    }
+    assert order == ["s3", "embed", "vector", "route"]
+    assert [n for n, _ in list_vectors(vectors_table, TEAM_ID)] == [note_id]
+    assert get_note(notes_table, note_id).status is NoteStatus.ROUTED
+
+
+@pytest.mark.parametrize("kind", ["embed_error", "client_error", "botocore_error"])
+def test_worker_embed_failure_keeps_captured(
+    notes_table, notes_bucket, vectors_table, caplog, kind
+):
+    note_id = "a" * 32
+    secret = "super secret note text"
+    note = Note(note_id=note_id, team_id=TEAM_ID, channel_id="C1", user_id="U1", text=secret)
+    assert put_if_absent(notes_table, note)
+    excs = {
+        "embed_error": EmbedError(secret),
+        "client_error": ClientError({"Error": {"Code": "Throttled", "Message": secret}}, "Op"),
+        "botocore_error": EndpointConnectionError(endpoint_url="https://bedrock.invalid"),
+    }
+
+    def embed(text):
+        raise excs[kind]
+
+    with caplog.at_level(logging.DEBUG, logger="slackkb"):
+        resp = _handle(_event(note_id, "m-emb"), notes_table, notes_bucket, vectors_table, embed)
+    assert _failures(resp) == ["m-emb"]
+    assert get_note(notes_table, note_id).status is NoteStatus.CAPTURED
+    assert list_vectors(vectors_table, TEAM_ID) == []
+    ours = [r for r in caplog.records if r.name.startswith("slackkb")]
+    warnings = [r.getMessage() for r in ours if r.levelno == logging.WARNING]
+    assert any(type(excs[kind]).__name__ in m and note_id in m for m in warnings)
+    assert all(secret not in r.getMessage() for r in ours)
+
+
+@pytest.mark.parametrize("kind", ["client_error", "botocore_error"])
+def test_worker_vector_write_failure_keeps_captured(notes_table, notes_bucket, caplog, kind):
+    note_id = "a" * 32
+    _put(notes_table, note_id)
+    if kind == "client_error":
+        exc = ClientError({"Error": {"Code": "AccessDenied"}}, "PutItem")
+    else:
+        exc = EndpointConnectionError(endpoint_url="https://dynamodb.invalid")
+
+    class Broken:
+        def put_item(self, **kwargs):
+            raise exc
+
+    with caplog.at_level(logging.WARNING, logger="slackkb"):
+        resp = _handle(
+            _event(note_id, "m-vec"), notes_table, notes_bucket, Broken(), lambda t: _vec()
+        )
+    assert _failures(resp) == ["m-vec"]
+    assert get_note(notes_table, note_id).status is NoteStatus.CAPTURED
+    assert any(type(exc).__name__ in r.getMessage() and note_id in r.getMessage()
+               for r in caplog.records if r.levelno == logging.WARNING)
+
+
+def test_worker_routed_redelivery_writes_no_vector(notes_table, vectors_table):
+    note_id = "a" * 32
+    _put(notes_table, note_id, status=NoteStatus.ROUTED)
+
+    def embed(text):
+        raise AssertionError("embed must not be called")
+
+    bucket = _RaisingBucket(RuntimeError("put must not be called"))
+    assert _handle(_event(note_id), notes_table, bucket, vectors_table, embed) == {
+        "batchItemFailures": []
+    }
+    assert list_vectors(vectors_table, TEAM_ID) == []
+
+
+def test_worker_failed_note_deletes_vector(notes_table, notes_bucket, vectors_table):
+    note_id = "a" * 32
+    _put(notes_table, note_id, status=NoteStatus.FAILED)
+    put_vector(vectors_table, TEAM_ID, note_id, _vec())
+    assert _handle(_event(note_id), notes_table, notes_bucket, vectors_table, lambda t: _vec()) == {
+        "batchItemFailures": []
+    }
+    assert list_vectors(vectors_table, TEAM_ID) == []
+
+
+def test_worker_lost_race_to_failed_deletes_vector(notes_table, notes_bucket, vectors_table):
+    note_id = "a" * 32
+    _put(notes_table, note_id)
+    table = _RaceTable(notes_table, NoteStatus.FAILED)
+    assert _handle(_event(note_id), table, notes_bucket, vectors_table, lambda t: _vec()) == {
+        "batchItemFailures": []
+    }
+    assert _keys(notes_bucket) == []
+    assert list_vectors(vectors_table, TEAM_ID) == []
+
+
+@pytest.mark.parametrize("lost_race", [False, True])
+def test_worker_vector_delete_failure_retries(notes_table, notes_bucket, lost_race):
+    note_id = "a" * 32
+    _put(notes_table, note_id, status=NoteStatus.CAPTURED if lost_race else NoteStatus.FAILED)
+
+    class Broken:
+        def put_item(self, **kwargs):
+            return {}
+
+        def delete_item(self, **kwargs):
+            raise ClientError({"Error": {"Code": "AccessDenied"}}, "DeleteItem")
+
+    table = _RaceTable(notes_table, NoteStatus.FAILED) if lost_race else notes_table
+    resp = _handle(_event(note_id, "m-vd"), table, notes_bucket, Broken(), lambda t: _vec())
+    assert _failures(resp) == ["m-vd"]
