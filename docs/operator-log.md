@@ -288,3 +288,6 @@ Logged after the fact; times approximate (local).
 
 ## 2026-11-08 — D-017 amendment (at-least-once) + worker Slack timeout
 - 10:14 Vajra agreed with Claude's recommendation: accept a duplicate reply over a lost one (at-least-once, written into D-017), give the worker's Slack calls a 10 s timeout (views.open keeps 2.5 s), defer a worker "answered" marker until Slice 9 logs show repeats. Claude wrote the D-017 amendment and `prompts/s7-timeout.md` (4 SCOPE paths: slack_api, thread, their tests). The worker's SlackClient had no builder (entry points are Slice 8), so the prompt adds `thread.slack_client(settings)` next to `bind()`. `urllib_transport` had no test before this. [judgment; decided by Vajra]
+- 10:15 Vajra ran `prama memory import`: UPDATE_BODY d-017 only (store log). [observed]
+- 10:15:52–10:25:39 EST Vajra ran the task (`prompts/s7-timeout.md`, 4 SCOPE paths, tee `docs/runs/s7-timeout.md`): personal_a59275d2, ready attempt 1, $0.2393 notional, $0 spent. Claude in the worktree: 393 passed, ruff, eval 0; 7 operator mutants (scratchpad mut7t.py) killed; md5 unchanged after. [observed; manual verification]
+- 10:27 records written; apply pending. [observed]
