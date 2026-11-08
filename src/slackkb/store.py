@@ -92,6 +92,33 @@ def transition_status(
     return True
 
 
+def route_note(table: Any, note_id: str) -> bool:
+    """D-014: CAPTURED -> ROUTED and remove the text in one conditional update.
+
+    True if updated, False if the note is in another status (left unchanged).
+    Raises NoteNotFoundError if there is no such note.
+    """
+    try:
+        table.update_item(
+            Key={"note_id": note_id},
+            UpdateExpression="SET #status = :routed REMOVE #text",
+            ConditionExpression="attribute_exists(note_id) AND #status = :captured",
+            ExpressionAttributeNames={"#status": "status", "#text": "text"},
+            ExpressionAttributeValues={
+                ":routed": NoteStatus.ROUTED.value,
+                ":captured": NoteStatus.CAPTURED.value,
+            },
+        )
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") != "ConditionalCheckFailedException":
+            raise
+        item = table.get_item(Key={"note_id": note_id}, ProjectionExpression="note_id")
+        if "Item" not in item:
+            raise NoteNotFoundError(note_id) from None
+        return False
+    return True
+
+
 def set_severity(table: Any, note_id: str, severity: Severity) -> None:
     """Set the note's severity only; status and every other attribute are untouched (D-009).
 

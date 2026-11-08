@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 from slackkb.blob import delete_note, put_note
 from slackkb.models import CaptureJob, Note, NoteStatus
-from slackkb.store import NoteNotFoundError, get_note, transition_status
+from slackkb.store import NoteNotFoundError, get_note, route_note
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,13 @@ def _process(record: Mapping[str, Any], table: Any, bucket: Any) -> bool:
             return False
         logger.info("note failed, no object, note_id=%s message_id=%s", note.note_id, message_id)
         return True
+    if note.status is NoteStatus.ROUTED:
+        logger.info(
+            "note already routed, nothing written, note_id=%s message_id=%s",
+            note.note_id,
+            message_id,
+        )
+        return True
     try:
         put_note(bucket, note)
     except (ClientError, BotoCoreError) as exc:
@@ -72,7 +79,7 @@ def _process(record: Mapping[str, Any], table: Any, bucket: Any) -> bool:
         )
         return False
     try:
-        routed = transition_status(table, job.note_id, NoteStatus.ROUTED)
+        routed = route_note(table, job.note_id)
     except NoteNotFoundError:
         logger.warning("note not found, note_id=%s message_id=%s", job.note_id, message_id)
         return False
@@ -86,11 +93,6 @@ def _process(record: Mapping[str, Any], table: Any, bucket: Any) -> bool:
         return False
     if routed:
         logger.info("note routed, note_id=%s message_id=%s", job.note_id, message_id)
-        return True
-    if note.status is NoteStatus.ROUTED:
-        logger.info(
-            "note already routed, rewritten, note_id=%s message_id=%s", job.note_id, message_id
-        )
         return True
     return _resolve_lost_race(table, bucket, note, message_id)
 

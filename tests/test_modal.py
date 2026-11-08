@@ -11,7 +11,7 @@ import pytest
 from conftest import BOT_TOKEN, SIGNING_SECRET, sign
 from pydantic import SecretStr
 
-from slackkb import capture, modal
+from slackkb import blob, capture, modal, worker
 from slackkb.config import Settings
 from slackkb.models import Note, NoteStatus, Severity, note_id
 from slackkb.slack_api import SlackApiError, SlackClient
@@ -597,3 +597,37 @@ def test_handlers_import_no_http_client(name):
     assert "response_url" not in source
     if name == "modal.py":
         assert {"slackkb.store", "slackkb.slack_verify"} <= modules
+
+
+def test_modal_submission_on_routed_note_updates_severity(
+    slack_request, slack_interaction, notes_table, notes_bucket, capture_queue
+):
+    _capture(slack_request, notes_table)
+    event = {
+        "Records": [
+            {
+                "messageId": "m1",
+                "receiptHandle": "rh",
+                "body": json.dumps({"note_id": NOTE_ID}),
+            }
+        ]
+    }
+    assert worker.handle(event, table=notes_table, bucket=notes_bucket) == {
+        "batchItemFailures": []
+    }
+    before = get_note(notes_table, NOTE_ID)
+    assert before.status is NoteStatus.ROUTED
+    assert before.text is None
+    transport = FakeTransport()
+    resp = _handle(slack_interaction("block_actions"), notes_table, transport)
+    assert resp["statusCode"] == 200
+    assert len(transport.calls) == 1
+    resp = _handle(slack_interaction("view_submission", severity="HIGH"), notes_table)
+    assert resp["statusCode"] == 200
+    assert resp["body"] == ""
+    after = get_note(notes_table, NOTE_ID)
+    assert after.severity is Severity.HIGH
+    assert after.status is NoteStatus.ROUTED
+    assert after.text is None
+    assert after == before.model_copy(update={"severity": Severity.HIGH})
+    assert blob.get_note(notes_bucket, "T000TEST", NOTE_ID).text == NOTE_TEXT
