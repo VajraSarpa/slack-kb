@@ -216,6 +216,13 @@ def test_response_url_transport_ignores_reply_body(monkeypatch):
     assert slack_api.response_url_transport(RESPONSE_URL, {"a": 1}) == 410
 
 
+def test_response_url_transport_passes_timeout(monkeypatch):
+    seen = _fake_response_urlopen(monkeypatch, status=200)
+    assert slack_api.make_response_url_transport(3.5)(RESPONSE_URL, {"a": 1}) == 200
+    assert len(seen) == 1
+    assert seen[0][1] == 3.5
+
+
 def test_response_url_transport_rejects_non_https(monkeypatch):
     seen = _fake_response_urlopen(monkeypatch)
     with pytest.raises(ValueError):
