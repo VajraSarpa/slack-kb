@@ -279,3 +279,7 @@ Logged after the fact; times approximate (local).
 - 09:38 7b prompt drafting started. [observed]
 - Prompt `prompts/s7b-thread.md` (SCOPE: thread.py, slack_api.py, tests/test_thread.py, tests/test_slack_api.py, = SLICES 7b). Exact reply formats fixed in the prompt so tests can pin values; every "logs" clause has a named test (7a lesson); bind() wires the real retrieve + answer_question (SLICES "real retrieve wired in here"), proved by one moto+Stubber test. [judgment]
 - Not in D-017: an SQS redelivery after a successful post posts twice; listed as an accepted NON-GOAL instead of a second claim in the worker. Vajra may want a decision. [judgment; deferred to Vajra]
+- 09:39:24–10:01:59 EST Vajra ran the 7b task (`prompts/s7b-thread.md`, 4 SCOPE paths, Sārathi `--review --mutate`, tee `docs/runs/s7b.md`): personal_09196b00, ready_for_human after attempt 2, $0.9363 notional, $0 spent. [observed]
+- Spec slip (Claude), second time today: req 4b/4d say "once" but TESTS named no call-count test; that was attempt 1's FLAG. Carry into future prompts: every "once", "exactly", "logs" clause names a test. [operator error (Claude)]
+- Claude in the worktree: 387 passed, ruff clean, eval 0; diff 4 SCOPE paths (+550); 16 operator mutants (scratchpad mut7b.py), 15 killed, survivor bind k=1 (k not in my prompt; carry-over). thread.py/slack_api.py md5 unchanged after. [manual verification]
+- 10:04 records written; apply pending. [observed]
