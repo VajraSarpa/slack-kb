@@ -15,7 +15,7 @@ from slackkb.blob import delete_note, put_note
 from slackkb.embed import EmbedError
 from slackkb.models import CaptureJob, Note, NoteStatus
 from slackkb.store import NoteNotFoundError, get_note, route_note
-from slackkb.vectors import delete_vector, put_vector
+from slackkb.vectors import VectorError, delete_vector, put_vector
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +24,19 @@ def _remove_object(bucket: Any, note: Note, message_id: str, vectors_table: Any)
     """A FAILED note has no S3 object or vector (D-014). False if a delete failed: SQS retries."""
     try:
         delete_note(bucket, note.team_id, note.note_id)
-        if vectors_table is not None:
-            delete_vector(vectors_table, note.team_id, note.note_id)
     except (ClientError, BotoCoreError) as exc:
         logger.warning(
             "blob delete error %s, note_id=%s message_id=%s",
+            type(exc).__name__,
+            note.note_id,
+            message_id,
+        )
+        return False
+    try:
+        delete_vector(vectors_table, note.team_id, note.note_id)
+    except (ClientError, BotoCoreError) as exc:
+        logger.warning(
+            "vector delete error %s, note_id=%s message_id=%s",
             type(exc).__name__,
             note.note_id,
             message_id,
@@ -42,7 +50,7 @@ def _process(
     table: Any,
     bucket: Any,
     vectors_table: Any,
-    embed: Callable[[str], list[float]] | None,
+    embed: Callable[[str], list[float]],
 ) -> bool:
     """Write one record's note to S3 and its vector, then route it. True on success."""
     message_id = record["messageId"]
@@ -88,17 +96,16 @@ def _process(
             message_id,
         )
         return False
-    if vectors_table is not None and embed is not None:
-        try:
-            put_vector(vectors_table, note.team_id, note.note_id, embed(note.text or ""))
-        except (EmbedError, ClientError, BotoCoreError) as exc:
-            logger.warning(
-                "vector error %s, note_id=%s message_id=%s",
-                type(exc).__name__,
-                note.note_id,
-                message_id,
-            )
-            return False
+    try:
+        put_vector(vectors_table, note.team_id, note.note_id, embed(note.text or ""))
+    except (EmbedError, VectorError, ClientError, BotoCoreError) as exc:
+        logger.warning(
+            "vector error %s, note_id=%s message_id=%s",
+            type(exc).__name__,
+            note.note_id,
+            message_id,
+        )
+        return False
     try:
         routed = route_note(table, job.note_id)
     except NoteNotFoundError:
@@ -165,15 +172,14 @@ def handle(
     *,
     table: Any,
     bucket: Any,
-    vectors_table: Any = None,
-    embed: Callable[[str], list[float]] | None = None,
+    vectors_table: Any,
+    embed: Callable[[str], list[float]],
 ) -> dict:
     """Handle one SQS Lambda event; return the partial batch response.
 
     embed maps a note's text to its vector; the Lambda entry point binds embed_text to a
-    Bedrock client and model id. Both default to None only because tests/test_modal.py
-    (outside Slice 6) still calls handle() without them; with either unset no vector is
-    written or deleted.
+    Bedrock client and model id. Both arguments are required: no note is ROUTED without
+    its vector (D-008).
     """
     failures = [
         {"itemIdentifier": record["messageId"]}

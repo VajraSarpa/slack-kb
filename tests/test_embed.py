@@ -89,3 +89,15 @@ def test_embed_wraps_botocore_errors():
     with pytest.raises(EmbedError) as info:
         embed_text(Broken(), model_id=EMBED_MODEL_ID, text="x")
     assert isinstance(info.value.__cause__, EndpointConnectionError)
+
+
+@pytest.mark.parametrize(
+    "literal", ["NaN", "Infinity", "-Infinity", "1e39", "-1e39", "1" + "0" * 400]
+)
+def test_embed_rejects_non_finite_or_out_of_range(client, literal):
+    rest = ", ".join(["0.1"] * (DIMENSIONS - 1))
+    raw = f'{{"embedding": [{literal}, {rest}]}}'.encode()
+    with Stubber(client) as stub:
+        stub.add_response("invoke_model", resp_of(raw))
+        with pytest.raises(EmbedError):
+            embed_text(client, model_id=EMBED_MODEL_ID, text="x")

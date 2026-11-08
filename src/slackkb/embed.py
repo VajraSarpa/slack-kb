@@ -1,11 +1,13 @@
 """The only module that calls Bedrock invoke_model for embeddings (Slice 6, D-002, D-008)."""
 
 import json
+import math
 from typing import Any
 
 from botocore.exceptions import BotoCoreError, ClientError
 
 DIMENSIONS = 512
+FLOAT32_MAX = 3.4028234663852886e38
 
 
 class EmbedError(Exception):
@@ -36,4 +38,10 @@ def embed_text(client: Any, *, model_id: str, text: str) -> list[float]:
         )
     ):
         raise EmbedError(f"embedding is not {DIMENSIONS} numbers")
-    return [float(x) for x in embedding]
+    try:
+        out = [float(x) for x in embedding]
+    except (OverflowError, ValueError) as exc:
+        raise EmbedError("embedding holds a number that is not a float") from exc
+    if not all(math.isfinite(x) and abs(x) <= FLOAT32_MAX for x in out):
+        raise EmbedError("embedding holds a value that is not a finite float32")
+    return out
