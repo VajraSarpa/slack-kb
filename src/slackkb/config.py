@@ -16,3 +16,4 @@ class Settings(BaseSettings):
     notes_bucket: str
     capture_queue_url: str
     slack_bot_token: SecretStr
+    qa_model_id: str

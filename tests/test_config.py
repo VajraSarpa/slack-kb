@@ -73,6 +73,16 @@ def test_missing_slack_bot_token_fails(monkeypatch):
         Settings()
 
 
+def test_reads_qa_model_id():
+    assert Settings().qa_model_id == "us.anthropic.claude-haiku-test"
+
+
+def test_missing_qa_model_id_fails(monkeypatch):
+    monkeypatch.delenv("SLACKKB_QA_MODEL_ID")
+    with pytest.raises(ValidationError):
+        Settings()
+
+
 def test_bot_token_is_secret():
     s = Settings()
     assert isinstance(s.slack_bot_token, SecretStr)
