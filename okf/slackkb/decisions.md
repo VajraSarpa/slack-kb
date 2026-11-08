@@ -10,4 +10,4 @@
   duplicates.
 - D-007 Signing secret from pydantic-settings; Secrets Manager wiring in
   Slice 8.
-- D-008 Retrieval store for Slice 6: undecided.
+- D-008 Retrieval store: DynamoDB table note_vectors, similarity in Lambda (docs/DECISIONS.md).

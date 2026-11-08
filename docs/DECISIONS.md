@@ -8,7 +8,26 @@
 - D-006 note_id = sha256(team_id:trigger_id), first 32 hex chars. Slash commands
         are not retried by Slack; the conditional put still blocks duplicates.
 - D-007 Signing secret from pydantic-settings; Secrets Manager wiring in Slice 8.
-- D-008 Retrieval store for Slice 6: undecided.
+- D-008 (2026-11-07) Retrieval store for Slice 6: DynamoDB, similarity in
+        Lambda. Chosen on cost: OpenSearch Serverless (Knowledge Bases) has
+        a ~$175/month floor; S3 Vectors is cheap but moto can't run its
+        QueryVectors, so retrieval would only be Stubber-tested; Aurora
+        pgvector needs a VPC. Vectors live in their own table note_vectors
+        (partition key team_id, sort key note_id; the vector as packed
+        float32 bytes), not in the notes table. Embeddings: Titan Text
+        Embeddings V2 via Bedrock through embed.py (D-002), 512 dimensions,
+        normalised, so similarity is a dot product; the model id and table
+        name are Settings fields. Only the note text is embedded, never
+        frontmatter. The worker writes S3, then the vector, then moves the
+        note to ROUTED; an embedding or vector-write failure raises, so SQS
+        retries and the DLQ applies; the vector put is an idempotent
+        overwrite. retrieve(question, team_id) embeds the question, reads
+        that team's partition, ranks by dot product and returns the top k
+        note_ids; text comes from S3 (blob.get_note). No match -> a "no
+        results" answer that names the query it ran. Limit, written down:
+        move to S3 Vectors when a team passes ~5,000 notes or retrieval
+        p95 exceeds 1 s; only retrieve.py and the worker's vector write
+        change. The table is Vajra's to add in infra/ (Slice 8).
 - D-009 Note status: CAPTURED -> ROUTED, or FAILED after the DLQ.
         capture writes CAPTURED. The worker sets ROUTED when it finishes
         (Slice 2); the DLQ handler sets FAILED (Slice 2b). Each move is a
@@ -60,6 +79,11 @@
         moves CAPTURED -> ROUTED; the put is an idempotent overwrite, and
         an S3 failure raises so SQS retries and the DLQ applies. All S3
         access goes through blob.py; the bucket name is a Settings field.
+        Amended 2026-11-07: the worker's CAPTURED -> ROUTED update also
+        removes text from the DynamoDB item (same conditional update), so
+        S3 holds the only copy of a routed note's content; readers get text
+        from S3. A redelivered ROUTED note is done: nothing is rewritten.
+        A FAILED note keeps its text (it never reached S3).
 - D-015 (2026-11-04, confirmed by Vajra) A failed
         enqueue leaves no note behind. Found by the Sārathi C11 run: when
         capture writes CAPTURED and the SQS send fails, the user gets the
