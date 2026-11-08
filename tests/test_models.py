@@ -5,7 +5,7 @@ import pytest
 from conftest import FIXTURES
 from pydantic import ValidationError
 
-from slackkb.models import CaptureRequest, Note, NoteStatus, QuestionJob, Severity
+from slackkb.models import CaptureJob, CaptureRequest, Note, NoteStatus, QuestionJob, Severity
 
 
 def _note(**overrides):
@@ -44,7 +44,28 @@ def test_capture_request_ignores_extra_form_fields():
     req = CaptureRequest(**fields)
     assert req.command == "/bnote"
     assert req.trigger_id == "1111.2222.abcdef"
-    assert not hasattr(req, "response_url")
+    assert req.response_url == "https://hooks.slack.invalid/commands/T000TEST/1/abc"
+
+
+def test_response_url_optional_and_https_only():
+    url = "https://hooks.slack.invalid/commands/T000TEST/1/abc"
+    form = {
+        "team_id": "T000TEST",
+        "channel_id": "C000TEST",
+        "user_id": "U000TEST",
+        "command": "/bnote",
+        "text": "x",
+        "trigger_id": "1.2.a",
+    }
+    assert CaptureRequest(**form).response_url is None
+    assert CaptureRequest(**form, response_url=url).response_url == url
+    with pytest.raises(ValidationError):
+        CaptureRequest(**form, response_url="http://hooks.slack.invalid/x")
+    job = {"note_id": "a" * 32}
+    assert CaptureJob.model_validate_json(json.dumps(job)).response_url is None
+    assert CaptureJob(**job, response_url=url).response_url == url
+    with pytest.raises(ValidationError):
+        CaptureJob(**job, response_url="http://hooks.slack.invalid/x")
 
 
 def test_note_text_none_only_when_routed():

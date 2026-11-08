@@ -705,7 +705,7 @@ def test_handlers_import_no_boto3(name, boundaries):
         for banned in BANNED:
             assert module != banned and not module.startswith(banned + "."), module
     assert boundaries <= modules
-    assert "response_url" not in source
+    assert "post_response_url" not in source and "urlopen" not in source
 
 
 # --- Slice 6: vector write between S3 and ROUTED (D-008) ---

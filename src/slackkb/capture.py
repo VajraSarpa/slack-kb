@@ -106,7 +106,8 @@ def handle(
         logger.info("duplicate capture, note_id=%s", note.note_id)
         return _ack(note.note_id)
     try:
-        send_capture_job(sqs, settings.capture_queue_url, CaptureJob(note_id=note.note_id))
+        job = CaptureJob(note_id=note.note_id, response_url=request.response_url)
+        send_capture_job(sqs, settings.capture_queue_url, job)
     except EnqueueError as exc:
         logger.warning("enqueue failed (%s), note_id=%s", exc, note.note_id)
         try:
