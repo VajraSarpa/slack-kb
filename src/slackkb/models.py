@@ -60,12 +60,14 @@ class CaptureRequest(BaseModel):
     command: str
     text: str
     trigger_id: str
+    response_url: str | None = Field(default=None, pattern=r"^https://")
 
 
 class CaptureJob(BaseModel):
-    """SQS message body from capture to the worker (Slice 2, D-004)."""
+    """SQS message body from capture to the worker (Slice 2, D-004; response_url D-018)."""
 
     note_id: str = Field(pattern=r"^[0-9a-f]{32}$")
+    response_url: str | None = Field(default=None, pattern=r"^https://")
 
 
 class QuestionJob(BaseModel):

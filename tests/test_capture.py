@@ -51,6 +51,20 @@ def test_valid_request_writes_note(slack_request, notes_table, capture_queue):
     assert note.status.value == "CAPTURED"
 
 
+def test_capture_job_carries_response_url(slack_request, notes_table, capture_queue, caplog):
+    with caplog.at_level(logging.DEBUG, logger="slackkb"):
+        _handle(slack_request(), notes_table)
+    messages = boto3.client("sqs").receive_message(QueueUrl=capture_queue.url)["Messages"]
+    assert json.loads(messages[0]["Body"]) == {
+        "note_id": EXPECTED_NOTE_ID,
+        "response_url": "https://hooks.slack.invalid/commands/T000TEST/1/abc",
+    }
+    # Requirement 7: the job carries the URL; no capture log line does.
+    assert "note captured" in caplog.text
+    assert "https://hooks.slack.invalid/commands/T000TEST/1/abc" not in caplog.text
+    assert "response_url" not in caplog.text
+
+
 def test_text_saved_as_typed(slack_request, notes_table, capture_queue):
     _handle(slack_request(text="  padded note  "), notes_table)
     assert get_note(notes_table, EXPECTED_NOTE_ID).text == "  padded note  "
@@ -330,4 +344,4 @@ def test_capture_imports_no_boto3_or_http_client():
             assert module != name and not module.startswith(name + "."), module
     assert "slackkb.store" in modules
     # Requirement 8: the ack is the return value; response_url is never used.
-    assert "response_url" not in source
+    assert "post_response_url" not in source and "urlopen" not in source

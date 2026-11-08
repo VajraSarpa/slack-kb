@@ -594,7 +594,7 @@ def test_handlers_import_no_http_client(name):
     for module in modules:
         for banned in BANNED:
             assert module != banned and not module.startswith(banned + "."), module
-    assert "response_url" not in source
+    assert "post_response_url" not in source and "urlopen" not in source
     if name == "modal.py":
         assert {"slackkb.store", "slackkb.slack_verify"} <= modules
 
