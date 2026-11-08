@@ -101,3 +101,85 @@ def test_embed_rejects_non_finite_or_out_of_range(client, literal):
         stub.add_response("invoke_model", resp_of(raw))
         with pytest.raises(EmbedError):
             embed_text(client, model_id=EMBED_MODEL_ID, text="x")
+
+
+def _embed_records(caplog):
+    return [r for r in caplog.records if r.name == "slackkb.embed"]
+
+
+def test_embed_usage_logged(client, caplog):
+    caplog.set_level("INFO", logger="slackkb.embed")
+    payload = {"embedding": [0.5] * DIMENSIONS, "inputTextTokenCount": 7}
+    with Stubber(client) as stub:
+        stub.add_response("invoke_model", resp_of(payload))
+        embed_text(client, model_id=EMBED_MODEL_ID, text="x")
+    records = _embed_records(caplog)
+    assert len(records) == 1
+    assert records[0].levelname == "INFO"
+    assert records[0].getMessage() == (
+        f"bedrock usage, call=embed model_id={EMBED_MODEL_ID} input_tokens=7"
+    )
+
+
+def test_embed_usage_logged_on_bad_embedding(client, caplog):
+    caplog.set_level("INFO", logger="slackkb.embed")
+    payload = {"embedding": [0.5] * (DIMENSIONS - 1), "inputTextTokenCount": 7}
+    with Stubber(client) as stub:
+        stub.add_response("invoke_model", resp_of(payload))
+        with pytest.raises(EmbedError):
+            embed_text(client, model_id=EMBED_MODEL_ID, text="x")
+    records = _embed_records(caplog)
+    assert [r.getMessage() for r in records] == [
+        f"bedrock usage, call=embed model_id={EMBED_MODEL_ID} input_tokens=7"
+    ]
+
+
+def test_embed_error_and_bad_json_log_no_usage(client, caplog):
+    caplog.set_level("INFO", logger="slackkb.embed")
+    with Stubber(client) as stub:
+        stub.add_client_error("invoke_model", service_error_code="ThrottlingException")
+        with pytest.raises(EmbedError):
+            embed_text(client, model_id=EMBED_MODEL_ID, text="x")
+    with Stubber(client) as stub:
+        stub.add_response("invoke_model", resp_of(b"not json"))
+        with pytest.raises(EmbedError):
+            embed_text(client, model_id=EMBED_MODEL_ID, text="x")
+    assert not [r for r in caplog.records if "bedrock usage" in r.getMessage()]
+
+
+def test_embed_usage_missing_warns(client, caplog):
+    caplog.set_level("INFO", logger="slackkb.embed")
+    vec = [0.5] * DIMENSIONS
+    payloads = [
+        {"embedding": vec},
+        {"embedding": vec, "inputTextTokenCount": "7"},
+        {"embedding": vec, "inputTextTokenCount": True},
+        {"embedding": vec, "inputTextTokenCount": -1},
+    ]
+    for payload in payloads:
+        caplog.clear()
+        with Stubber(client) as stub:
+            stub.add_response("invoke_model", resp_of(payload))
+            out = embed_text(client, model_id=EMBED_MODEL_ID, text="x")
+        assert out == vec
+        records = _embed_records(caplog)
+        assert len(records) == 1
+        assert records[0].levelname == "WARNING"
+        assert records[0].getMessage() == (
+            f"bedrock usage missing, call=embed model_id={EMBED_MODEL_ID}"
+        )
+
+
+def test_embed_usage_line_has_no_text_or_vector(client, caplog):
+    caplog.set_level("DEBUG", logger="slackkb.embed")
+    payload = {"embedding": [0.123] * DIMENSIONS, "inputTextTokenCount": 3}
+    with Stubber(client) as stub:
+        stub.add_response("invoke_model", resp_of(payload))
+        embed_text(client, model_id=EMBED_MODEL_ID, text="TEXT-SECRET")
+    records = _embed_records(caplog)
+    assert records
+    for r in records:
+        text = r.getMessage()
+        assert "TEXT-SECRET" not in text and "0.123" not in text
+        assert "$" not in text
+        assert "usd" not in text.lower() and "cost" not in text.lower()

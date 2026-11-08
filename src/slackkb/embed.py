@@ -1,6 +1,7 @@
 """The only module that calls Bedrock invoke_model for embeddings (Slice 6, D-002, D-008)."""
 
 import json
+import logging
 import math
 from typing import Any
 
@@ -10,8 +11,19 @@ DIMENSIONS = 512
 FLOAT32_MAX = 3.4028234663852886e38
 
 
+log = logging.getLogger(__name__)
+
+
 class EmbedError(Exception):
     """The embedding call failed or returned something unusable."""
+
+
+def _log_usage(model_id: str, count: Any) -> None:
+    """One INFO line with the input token count (D-019); a WARNING if it is unusable."""
+    if isinstance(count, int) and not isinstance(count, bool) and count >= 0:
+        log.info("bedrock usage, call=embed model_id=%s input_tokens=%d", model_id, count)
+    else:
+        log.warning("bedrock usage missing, call=embed model_id=%s", model_id)
 
 
 def embed_text(client: Any, *, model_id: str, text: str) -> list[float]:
@@ -27,8 +39,14 @@ def embed_text(client: Any, *, model_id: str, text: str) -> list[float]:
     except (ClientError, BotoCoreError) as exc:
         raise EmbedError(type(exc).__name__) from exc
     try:
-        embedding = json.loads(raw)["embedding"]
-    except (ValueError, KeyError, TypeError) as exc:
+        body = json.loads(raw)
+    except (ValueError, TypeError) as exc:
+        raise EmbedError("response body is not a valid embedding payload") from exc
+    if isinstance(body, dict):
+        _log_usage(model_id, body.get("inputTextTokenCount"))
+    try:
+        embedding = body["embedding"]
+    except (KeyError, TypeError) as exc:
         raise EmbedError("response body is not a valid embedding payload") from exc
     if (
         not isinstance(embedding, list)
