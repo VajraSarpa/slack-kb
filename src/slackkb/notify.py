@@ -13,6 +13,7 @@ from typing import Any
 from botocore.exceptions import BotoCoreError, ClientError
 from pydantic import ValidationError
 
+from slackkb import obs
 from slackkb.blob import delete_note
 from slackkb.models import CaptureJob, NoteStatus
 from slackkb.slack_api import ResponseUrlError
@@ -39,6 +40,7 @@ def _process(
         logger.warning("unparsable capture job, message_id=%s", message_id)
         return True
     note_id = job.note_id
+    obs.bind(note_id)
     try:
         moved = transition_status(table, note_id, NoteStatus.FAILED)
     except NoteNotFoundError:
@@ -130,9 +132,10 @@ def handle(
     post is called as post(response_url, FAILED_TEXT); the Lambda entry point binds it to
     slack_api.post_response_url.
     """
-    failures = [
-        {"itemIdentifier": record["messageId"]}
-        for record in event.get("Records") or []
-        if not _process(record, table, bucket, vectors_table, post)
-    ]
+    failures = []
+    for record in event.get("Records") or []:
+        with obs.trace():
+            ok = _process(record, table, bucket, vectors_table, post)
+        if not ok:
+            failures.append({"itemIdentifier": record["messageId"]})
     return {"batchItemFailures": failures}
