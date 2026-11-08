@@ -83,9 +83,12 @@ def answer_question(
         raise QaError(f"tool output invalid: {exc.error_count()} error(s)") from None
     known = {n.note_id for n in notes}
     kept: list[str] = []
+    dropped = 0
     for note_id in result.cited_note_ids:
         if note_id not in known:
-            log.warning("dropped cited id not among given notes: %r", note_id)
+            dropped += 1
         elif note_id not in kept:
             kept.append(note_id)
+    if dropped:
+        log.warning("dropped %d cited id(s) not among given notes", dropped)
     return QaResult(answer=result.answer, cited_note_ids=kept)
