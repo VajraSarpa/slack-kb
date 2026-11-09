@@ -1,36 +1,40 @@
 # SlackKB
 
-A Slack knowledge base for incident notes, built on AWS. Someone types `/bnote <what happened>` in Slack. The note is verified, acknowledged at once, stored, and processed in the background. Later slices make the notes searchable and answer questions about them in Slack threads.
+A Slack knowledge base for incident notes, built on AWS. Someone types `/bnote <what happened>` in Slack. The note is verified, acknowledged at once, stored, and processed in the background. Notes are searchable, and `@slackkb` answers questions about them in a Slack thread, citing the notes it used.
 
 The repo has a second job: it is the test bed for **Pramā**, a coding-agent harness. Much of the code was written through Pramā, and paired tasks were also run with plain Claude Code under the same rules; the results are compared in `docs/`.
 
 ## Status
 
-Built test-first, one slice at a time ([`docs/SLICES.md`](docs/SLICES.md)). The suite runs offline (`moto` for AWS, fake clients for Slack and Bedrock).
+Built test-first, one slice at a time ([`docs/SLICES.md`](docs/SLICES.md)), and **deployed on AWS on 2026-11-09** (stack `slackkb-dev`, us-east-2), working end to end in a dev Slack workspace. 519 tests run offline (`moto` for AWS, fake clients for Slack and Bedrock).
 
 | Slice | What it does | State |
 |---|---|---|
 | 1 | `/bnote`: signature checked before parsing, ack, conditional put on `note_id` | done |
 | 2 | Fast ack; SQS worker moves CAPTURED → ROUTED | done |
+| 2b | A note that fails after the DLQ tells its user (notify) | done |
 | 3 | Severity modal from a "Set severity" button | done |
-| 2b | A note that fails after the DLQ tells its user | not started |
-| 4 | Note written to S3 as OKF markdown; mutable state stays in DynamoDB | not started |
-| 5–7 | Bedrock answers, retrieval, thread replies via the Events API | not started |
-| 8–9 | SAM template (least-privilege IAM, Secrets Manager, DLQ), observability | not started |
+| 4 | Note written to S3 as OKF markdown; mutable state stays in DynamoDB | done |
+| 5 | Bedrock answer from retrieved notes, citing note ids | done |
+| 6 | Titan embeddings, vectors in DynamoDB, retrieval | done |
+| 7 | `@slackkb` questions via the Events API, answered in thread | done |
+| 8 | Lambda entry points, SAM template, template tests, first deploy | done |
+| 9 | Trace ids, JSON logs, token counts | done |
 
-Nothing here is deployed yet, and `infra/` is empty.
+90% of the current source lines and 89% of the tests were last written by a Pramā run (`git blame` on `main`).
 
 ## How it works
 
 ```
-Slack /bnote ──► capture (Lambda) ──► DynamoDB  (note, status CAPTURED)
-                     │  verify signature, ack in < 3 s
-                     └──► SQS ──► worker (Lambda) ──► status ROUTED
-                           └── DLQ after repeated failures ──► FAILED (2b)
-Slack button ──► modal (Lambda) ──► views.open / view_submission ──► severity
+Slack /bnote ──► capture ──► DynamoDB notes (CAPTURED) ──► ack + "Set severity"
+                    └──► SQS capture queue ──► worker ──► S3 note (OKF) + Titan vector ──► ROUTED
+                             └── DLQ after 3 tries ──► notify ──► FAILED + private notice
+Slack button ──► modal ──► views.open / view_submission ──► severity
+@slackkb question ──► events ──► SQS question queue ──► thread
+                                   └──► embed → retrieve notes → Bedrock answer ──► reply in thread
 ```
 
-Each AWS or Slack boundary has exactly one module: `store.py` (DynamoDB), `queue.py` (SQS), `slack_api.py` (Slack Web API), `slack_verify.py` (request signatures). Later slices add `blob.py` (S3) and `llm.py` (Bedrock). Clients are passed in, never created at import. Settings come from `SLACKKB_`-prefixed environment variables via pydantic-settings.
+Six Lambdas, one per handler in `entry.py`, each with its own least-privilege role. Each AWS or Slack boundary has exactly one module: `store.py` (DynamoDB), `queue.py` (SQS), `blob.py` (S3), `vectors.py` and `embed.py` (vectors, Titan), `llm.py` (Bedrock Converse), `slack_api.py` (Slack Web API), `slack_verify.py` (request signatures). Clients are passed in, never created at import. Settings come from `SLACKKB_`-prefixed environment variables; the two Slack secrets are read from Secrets Manager by ARN at cold start (D-020). The answer model is Amazon Nova 2 Lite (D-012; this AWS account is refused Anthropic models), capped at 1,024 output tokens.
 
 ## Run it
 
@@ -40,7 +44,20 @@ Requires Python 3.12 and [uv](https://docs.astral.sh/uv/).
 uv sync
 uv run pytest
 uv run ruff check src tests
+uv run cfn-lint infra/template.yaml
 ```
+
+## Deploy
+
+Needs the AWS SAM CLI, an AWS profile (here `slackkb-dev`, short-lived credentials from `aws login`), and a Python 3.12 with pip on `PATH` for `sam build`. The Slack signing secret and bot token live in Secrets Manager; `samconfig.toml` holds their ARNs, never their values.
+
+```bash
+uv export --no-dev --no-hashes --no-emit-project -o src/requirements.txt
+sam build -t infra/template.yaml
+sam deploy            # uses samconfig.toml; confirm the change set with y
+```
+
+The stack outputs three URLs (slash command, interactivity, events) for the Slack app's settings.
 
 ## Where things are
 
