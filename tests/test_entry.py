@@ -248,6 +248,10 @@ def test_thread_and_modal_bindings(env, monkeypatch):
 
     monkeypatch.setattr(entry.thread, "bind", bind)
     monkeypatch.setattr(entry.thread, "slack_client", lambda s: ("slack", s))
+    lookups = []
+    monkeypatch.setattr(
+        entry.thread, "severity_lookup", lambda table: lookups.append(table) or "lookup"
+    )
 
     entry.thread_handler({}, None)
     settings, bedrock, vectors, bucket = bound[0]
@@ -257,6 +261,8 @@ def test_thread_and_modal_bindings(env, monkeypatch):
     kw = thread_seen[0][1]
     assert (kw["retrieve"], kw["answer"]) == ("retrieve", "answer")
     assert kw["slack"] == ("slack", settings)
+    assert kw["severity_of"] == "lookup"
+    assert lookups == [Fake("table", settings.notes_table)]
 
     entry.modal_handler({}, None)
     slack = modal_seen[0][1]["slack"]

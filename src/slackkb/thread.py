@@ -6,13 +6,14 @@ text are never logged.
 """
 
 import logging
+import re
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import ValidationError
 
-from slackkb import obs, qa
+from slackkb import obs, qa, store
 from slackkb import retrieve as retrieve_mod
 from slackkb.config import Settings
 from slackkb.models import QuestionJob
@@ -24,12 +25,13 @@ logger = logging.getLogger(__name__)
 
 SLACK_TIMEOUT_SECONDS = 10.0
 
-BRIEF_LIMIT = 80
-
 QA_ERROR_TEXT = "Sorry, I couldn't answer that. Please try again."
+
+_CHANNEL_ID = re.compile(r"[A-Z0-9]+")
 
 Retrieve = Callable[[str, str], list[OkfNote]]
 Answer = Callable[[str, list[OkfNote]], QaResult]
+SeverityOf = Callable[[str], str | None]
 
 
 def slack_client(settings: Settings) -> SlackClient:
@@ -47,26 +49,44 @@ def slack_escape(text: str) -> str:
 def _when(created_at: str) -> str:
     try:
         moment = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-    except ValueError:
+        if moment.tzinfo is None:
+            moment = moment.replace(tzinfo=UTC)
+        moment = moment.astimezone(UTC)
+        stamp = int(moment.timestamp())
+    except (ValueError, OverflowError):
         return slack_escape(created_at)
-    if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=UTC)
-    moment = moment.astimezone(UTC)
     return (
-        f"<!date^{int(moment.timestamp())}^{{date_short_pretty}} {{time}}"
+        f"<!date^{stamp}^{{date_short_pretty}} {{time}}"
         f"|{moment:%Y-%m-%d %H:%M} UTC>"
     )
 
 
-def _brief(text: str) -> str:
-    text = " ".join(text.split())
-    if len(text) > BRIEF_LIMIT:
-        cut = text.rfind(" ", 0, BRIEF_LIMIT + 1)
-        text = text[: cut if cut > 0 else BRIEF_LIMIT].rstrip(" ") + "…"
-    return slack_escape(text)
+def severity_lookup(table: Any) -> Callable[[str], str | None]:
+    """note_id -> the stored note's severity name, or None when the note is gone."""
+
+    def lookup(note_id: str) -> str | None:
+        note = store.get_note(table, note_id)
+        return None if note is None else note.severity.value
+
+    return lookup
 
 
-def _reply_text(result: QaResult, notes: list[OkfNote]) -> str:
+def _severity_part(note_id: str, severity_of: SeverityOf | None) -> str:
+    if severity_of is None:
+        return ""
+    try:
+        severity = severity_of(note_id)
+    except Exception:
+        severity = None
+    if severity is None:
+        logger.warning("severity unavailable, note_id=%s", note_id)
+        return ""
+    return " · " + slack_escape(severity)
+
+
+def _reply_text(
+    result: QaResult, notes: list[OkfNote], severity_of: SeverityOf | None = None
+) -> str:
     text = slack_escape(result.answer)
     if result.cited_note_ids:
         by_id = {note.note_id: note for note in notes}
@@ -75,13 +95,20 @@ def _reply_text(result: QaResult, notes: list[OkfNote]) -> str:
             note = by_id.get(note_id)
             if note is None:
                 text += "\n• " + slack_escape(note_id)
-            else:
-                text += f"\n• {_when(note.created_at)}: {_brief(note.text)}"
+                continue
+            text += "\n• " + _when(note.created_at)
+            if _CHANNEL_ID.fullmatch(note.channel_id):
+                text += f" in <#{note.channel_id}>"
+            text += _severity_part(note_id, severity_of)
     return text
 
 
 def _process(
-    record: Mapping[str, Any], retrieve: Retrieve, answer: Answer, slack: SlackClient
+    record: Mapping[str, Any],
+    retrieve: Retrieve,
+    answer: Answer,
+    slack: SlackClient,
+    severity_of: SeverityOf | None = None,
 ) -> bool:
     message_id = record["messageId"]
     try:
@@ -102,7 +129,8 @@ def _process(
                 logger.warning("question not answered, event_id=%s", job.event_id)
                 slack.chat_post_ephemeral(job.channel, job.user, job.thread_ts, QA_ERROR_TEXT)
                 return True
-            slack.chat_post_message(job.channel, job.thread_ts, _reply_text(result, notes))
+            text = _reply_text(result, notes, severity_of)
+            slack.chat_post_message(job.channel, job.thread_ts, text)
     except Exception as exc:
         logger.warning("question failed, %s, event_id=%s", type(exc).__name__, job.event_id)
         return False
@@ -111,13 +139,18 @@ def _process(
 
 
 def handle(
-    event: Mapping[str, Any], *, retrieve: Retrieve, answer: Answer, slack: SlackClient
+    event: Mapping[str, Any],
+    *,
+    retrieve: Retrieve,
+    answer: Answer,
+    slack: SlackClient,
+    severity_of: SeverityOf | None = None,
 ) -> dict:
     """Handle one SQS Lambda event; return the partial batch response."""
     failures = []
     for record in event.get("Records") or []:
         with obs.trace():
-            ok = _process(record, retrieve, answer, slack)
+            ok = _process(record, retrieve, answer, slack, severity_of)
         if not ok:
             failures.append({"itemIdentifier": record["messageId"]})
     return {"batchItemFailures": failures}
