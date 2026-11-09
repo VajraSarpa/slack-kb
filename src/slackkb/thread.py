@@ -7,6 +7,7 @@ text are never logged.
 
 import logging
 from collections.abc import Callable, Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import ValidationError
@@ -22,6 +23,8 @@ from slackkb.slack_api import SlackClient, make_urllib_transport
 logger = logging.getLogger(__name__)
 
 SLACK_TIMEOUT_SECONDS = 10.0
+
+BRIEF_LIMIT = 80
 
 QA_ERROR_TEXT = "Sorry, I couldn't answer that. Please try again."
 
@@ -41,10 +44,39 @@ def slack_escape(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def _reply_text(result: QaResult) -> str:
+def _when(created_at: str) -> str:
+    try:
+        moment = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    except ValueError:
+        return slack_escape(created_at)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    moment = moment.astimezone(UTC)
+    return (
+        f"<!date^{int(moment.timestamp())}^{{date_short_pretty}} {{time}}"
+        f"|{moment:%Y-%m-%d %H:%M} UTC>"
+    )
+
+
+def _brief(text: str) -> str:
+    text = " ".join(text.split())
+    if len(text) > BRIEF_LIMIT:
+        cut = text.rfind(" ", 0, BRIEF_LIMIT + 1)
+        text = text[: cut if cut > 0 else BRIEF_LIMIT].rstrip(" ") + "…"
+    return slack_escape(text)
+
+
+def _reply_text(result: QaResult, notes: list[OkfNote]) -> str:
     text = slack_escape(result.answer)
     if result.cited_note_ids:
-        text += "\n\nNotes: " + ", ".join(result.cited_note_ids)
+        by_id = {note.note_id: note for note in notes}
+        text += "\n\nNotes:"
+        for note_id in result.cited_note_ids:
+            note = by_id.get(note_id)
+            if note is None:
+                text += "\n• " + slack_escape(note_id)
+            else:
+                text += f"\n• {_when(note.created_at)}: {_brief(note.text)}"
     return text
 
 
@@ -70,7 +102,7 @@ def _process(
                 logger.warning("question not answered, event_id=%s", job.event_id)
                 slack.chat_post_ephemeral(job.channel, job.user, job.thread_ts, QA_ERROR_TEXT)
                 return True
-            slack.chat_post_message(job.channel, job.thread_ts, _reply_text(result))
+            slack.chat_post_message(job.channel, job.thread_ts, _reply_text(result, notes))
     except Exception as exc:
         logger.warning("question failed, %s, event_id=%s", type(exc).__name__, job.event_id)
         return False
