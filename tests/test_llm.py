@@ -45,11 +45,42 @@ def test_ask_sends_forced_tool_request(client):
         "system": [{"text": "SYS"}],
         "messages": [{"role": "user", "content": [{"text": "USER"}]}],
         "toolConfig": {"tools": [TOOL], "toolChoice": {"tool": {"name": "answer"}}},
+        "inferenceConfig": {"maxTokens": 1024},
     }
     with Stubber(client) as stub:
         stub.add_response("converse", tool_response({"answer": "a"}), expected)
         llm.ask(client, model_id="model-x", system="SYS", user="USER", tool=TOOL)
         stub.assert_no_pending_responses()
+
+
+def test_ask_caps_output_tokens(client):
+    assert llm.MAX_TOKENS == 1024
+    expected = {
+        "modelId": "m",
+        "system": [{"text": "s"}],
+        "messages": [{"role": "user", "content": [{"text": "u"}]}],
+        "toolConfig": {"tools": [TOOL], "toolChoice": {"tool": {"name": "answer"}}},
+        "inferenceConfig": {"maxTokens": 1024},
+    }
+    with Stubber(client) as stub:
+        stub.add_response("converse", tool_response({"answer": "a"}), expected)
+        llm.ask(client, model_id="m", system="s", user="u", tool=TOOL)
+        stub.assert_no_pending_responses()
+
+
+def test_max_tokens_stop_is_an_error(client, caplog):
+    caplog.set_level("INFO", logger="slackkb.llm")
+    resp = tool_response({"answer": "cut off"})
+    resp["stopReason"] = "max_tokens"
+    with Stubber(client) as stub:
+        stub.add_response("converse", resp)
+        with pytest.raises(llm.LlmError, match="max_tokens"):
+            llm.ask(client, model_id="model-x", system="s", user="u", tool=TOOL)
+    records = _usage_records(caplog)
+    assert [r.levelname for r in records] == ["INFO", "WARNING"]
+    assert records[0].getMessage().startswith("bedrock usage, call=converse")
+    assert "max_tokens" in records[1].getMessage()
+    assert "model-x" in records[1].getMessage()
 
 
 def test_ask_returns_tool_input(client):
