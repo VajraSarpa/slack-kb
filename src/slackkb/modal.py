@@ -173,10 +173,11 @@ def handle(
 def _handle(
     event: Mapping[str, Any], *, table: Any, slack: SlackClient, settings: Settings, now: int
 ) -> dict:
+    secret = settings.require("signing_secret")
     headers = event.get("headers") or {}
     try:
         body = _raw_body(event)
-        verify(headers, body, settings.signing_secret.get_secret_value(), now)
+        verify(headers, body, secret.get_secret_value(), now)
     except SignatureError as exc:
         logger.warning("modal rejected, reason=%s", exc)
         return _response(401, "unauthorized")
