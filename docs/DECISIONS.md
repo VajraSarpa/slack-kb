@@ -64,6 +64,17 @@
         max_tokens is an LlmError (logged), never a partial answer.
         Cost at dev volume ≈ $1/month (per call; $0 idle); the $175/month
         figure is OpenSearch Serverless, ruled out in D-008.
+        Model changed 2026-11-09 (Vajra, at the first deploy): this AWS
+        account is refused every Anthropic model ("not available for this
+        account", agreementAvailability NOT_AVAILABLE for Haiku 5.5, 4.5 and
+        3), so Q&A uses Amazon Nova 2 Lite: us.amazon.nova-2-lite-v1:0,
+        QaModelBaseId amazon.nova-2-lite-v1:0 (routes to
+        foundation-model/amazon.nova-2-lite-v1:0 in us-east-1/2, us-west-2;
+        the region-* foundation-model ARN covers it). Checked by hand: one
+        Converse call with the forced answer tool and maxTokens 1024 returned
+        stopReason tool_use with answer + cited_note_ids. No code change;
+        llm.py is model-agnostic. Anthropic can come back through an AWS
+        access request, by changing QaModelBaseId only.
 - D-013 Severity modal (Slice 3) opens from a "Set severity" button in the
         /bnote ack, not from capture. The button's block_actions payload
         carries a fresh trigger_id; modal.py verifies the signature, calls

@@ -23,11 +23,11 @@ Parameters:
     Description: Secrets Manager ARN; SecretString is the xoxb- bot token.
   QaModelBaseId:
     Type: String
-    AllowedPattern: "^anthropic\\.[A-Za-z0-9.:-]+$"
+    AllowedPattern: "^(anthropic|amazon)\\.[A-Za-z0-9.:-]+$"
     Description: >
       D-012 foundation model id without the us. prefix, e.g.
-      anthropic.claude-haiku-5-5-<date>-v1:0. Look it up with the slackkb-dev
-      profile (Slice 8d). The app is given us.<this> (the inference profile).
+      amazon.nova-2-lite-v1:0 (Anthropic models are blocked on this account,
+      2026-11-09). The app is given us.<this> (the inference profile).
   EmbedModelId:
     Type: String
     Default: amazon.titan-embed-text-v2:0
