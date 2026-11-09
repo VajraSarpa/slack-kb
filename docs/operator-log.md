@@ -337,3 +337,11 @@ Logged after the fact; times approximate (local).
 
 ## 2026-11-08 — Slice 8b template (Claude, on Vajra's ask)
 - 20:36–20:42 EST drafted `infra/template.yaml` from entry.py, config.py, store/vectors/dedup/blob/queue call sites and D-004/006/008/011/012/014/017/018/020; `cfn-lint infra/template.yaml` exit 0; scripted check: no IAM action contains `*`. `sam` not installed here, so not built. [judgment; Vajra reads it]
+
+## 2026-11-08 — Slice 8b closed, Slice 8c (Pramā)
+- 22:43 Vajra OK'd the eight 8b template choices; 8b done. Claude's 20:55 handoff note undercounted the template's `*`s (bucket Deny `Action: s3:*`); corrected `828cb0a`. [judgment]
+- 22:45 wrote `prompts/s8c-infra-tests.md`; Vajra added cfn-lint as a dev dep and committed `443c143`.
+- ~22:49 first `prama task` refused: "no env for this lockfile; run `prama prepare`". Claude's preflight had inferred the env would rebuild itself (wrong). Vajra ran `prama prepare` (T3, approved): env `5a399257cf05713a` ready 22:50; Claude checked cfn-lint 1.60.0, pytest/moto/yaml import, cfn-lint on the template exit 0. [manual verification]
+- 22:51:49–23:04:45 EST Vajra ran the 8c command (tee `docs/runs/s8c.md`): personal_1712bfec, hard_flagged after attempt 2, $0.9383 notional, $0 spent. `prama eval`: 0 findings.
+- Claude in the worktree: 513 passed, ruff clean; 4 template mutants (scratchpad), 2 killed, 2 survive (mixed-case secretsmanager action; policy on another bucket), confirming review 2's f1 and f2. Globals mutant fails `test_secret_arn_env_per_function` directly. Template restored; worktree diff is the test file only. [manual verification]
+- Recommendation: `prama apply personal_1712bfec --accept-flag`, then a tests-only follow-up for the two survivors. [judgment; deferred to Vajra]
