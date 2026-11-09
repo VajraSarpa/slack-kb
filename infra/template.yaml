@@ -454,6 +454,9 @@ Resources:
               - Effect: Allow   # SQS event source
                 Action: [sqs:ReceiveMessage, sqs:DeleteMessage, sqs:GetQueueAttributes]
                 Resource: !GetAtt QuestionQueue.Arn
+              - Effect: Allow   # store.get_note: severity on cited notes (D-021)
+                Action: dynamodb:GetItem
+                Resource: !GetAtt NotesTable.Arn
               - Effect: Allow   # vectors.list_vectors
                 Action: dynamodb:Query
                 Resource: !GetAtt VectorsTable.Arn
