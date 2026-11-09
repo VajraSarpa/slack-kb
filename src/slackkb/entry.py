@@ -185,9 +185,18 @@ def thread_handler(event: Any, context: Any) -> Any:
             vectors_table=_table(session, settings.vectors_table),
             bucket=_bucket(session, settings.notes_bucket),
         )
-        return {"retrieve": retrieve, "answer": answer, "slack": thread.slack_client(settings)}
+        return {
+            "retrieve": retrieve,
+            "answer": answer,
+            "slack": thread.slack_client(settings),
+            "severity_of": thread.severity_lookup(_table(session, settings.notes_table)),
+        }
 
     state = _cold_start("thread", _Secrets(bot_token=True), build)
     return thread.handle(
-        event, retrieve=state["retrieve"], answer=state["answer"], slack=state["slack"]
+        event,
+        retrieve=state["retrieve"],
+        answer=state["answer"],
+        slack=state["slack"],
+        severity_of=state["severity_of"],
     )
