@@ -80,7 +80,9 @@ def _secret_resources(tpl, name):
     """Resources of Allow GetSecretValue statements, as Ref names."""
     out = []
     for s in _role_statements(tpl, name):
-        if s["Effect"] == "Allow" and "secretsmanager:GetSecretValue" in _list(s["Action"]):
+        if s["Effect"] == "Allow" and "secretsmanager:getsecretvalue" in [
+            a.lower() for a in _list(s["Action"])
+        ]:
             out += [_ref(r) for r in _list(s["Resource"])]
     return sorted(out)
 
@@ -170,8 +172,8 @@ def check_secret_reads(tpl):
             if s["Effect"] != "Allow":
                 continue
             for a in _list(s["Action"]):
-                if a.startswith("secretsmanager:"):
-                    assert a == "secretsmanager:GetSecretValue", f"{name}: {a}"
+                if a.lower().startswith("secretsmanager:"):
+                    assert a.lower() == "secretsmanager:getsecretvalue", f"{name}: {a}"
 
 
 def check_settings_env(tpl):
@@ -222,9 +224,9 @@ def check_bucket(tpl):
         "RestrictPublicBuckets",
     ):
         assert pab.get(flag) is True, flag
-    stmts = _list(
-        tpl["Resources"]["NotesBucketPolicy"]["Properties"]["PolicyDocument"]["Statement"]
-    )
+    policy = tpl["Resources"]["NotesBucketPolicy"]["Properties"]
+    assert policy["Bucket"] == {"Ref": "NotesBucket"}
+    stmts = _list(policy["PolicyDocument"]["Statement"])
     assert any(
         s["Effect"] == "Deny"
         and s.get("Condition", {}).get("Bool", {}).get("aws:SecureTransport") == "false"
@@ -336,6 +338,30 @@ def _m_other_secret_action(t):
     )
 
 
+def _m_worker_reads_secret_mixed_case(t):
+    t["Resources"]["WorkerRole"]["Properties"]["Policies"][0]["PolicyDocument"]["Statement"].append(
+        {
+            "Effect": "Allow",
+            "Action": "SecretsManager:GetSecretValue",
+            "Resource": {"Ref": "SigningSecretArn"},
+        }
+    )
+
+
+def _m_other_secret_action_mixed_case(t):
+    t["Resources"]["ThreadRole"]["Properties"]["Policies"][0]["PolicyDocument"]["Statement"].append(
+        {
+            "Effect": "Allow",
+            "Action": "SecretsManager:DescribeSecret",
+            "Resource": {"Ref": "SlackBotTokenArn"},
+        }
+    )
+
+
+def _m_policy_on_other_bucket(t):
+    t["Resources"]["NotesBucketPolicy"]["Properties"]["Bucket"] = {"Ref": "OtherBucket"}
+
+
 def _m_drop_setting(t):
     del t["Globals"]["Function"]["Environment"]["Variables"]["SLACKKB_EVENTS_TABLE"]
 
@@ -394,6 +420,8 @@ MUTANTS = [
     (check_secret_arn_env, _m_secret_resource),
     (check_secret_reads, _m_worker_reads_secret),
     (check_secret_reads, _m_other_secret_action),
+    (check_secret_reads, _m_worker_reads_secret_mixed_case),
+    (check_secret_reads, _m_other_secret_action_mixed_case),
     (check_settings_env, _m_drop_setting),
     (check_settings_env, _m_secret_in_env),
     (check_dlq_window, _m_max_receive),
@@ -405,6 +433,7 @@ MUTANTS = [
     (check_bucket, _m_pab_off),
     (check_bucket, _m_versioning),
     (check_bucket, _m_no_deny),
+    (check_bucket, _m_policy_on_other_bucket),
 ]
 
 
@@ -417,3 +446,20 @@ def test_check_fails_on_mutant(template, check, mutate):
     mutate(broken)
     with pytest.raises(AssertionError):
         check(broken)
+
+
+def test_secret_reads_ignore_action_case(template):
+    tpl = copy.deepcopy(template)
+    rewritten = 0
+    for s in _role_statements(tpl, "Modal"):
+        actions = _list(s["Action"])
+        new = [
+            "SECRETSMANAGER:GETSECRETVALUE"
+            if a.lower() == "secretsmanager:getsecretvalue"
+            else a
+            for a in actions
+        ]
+        rewritten += sum(a != b for a, b in zip(actions, new, strict=True))
+        s["Action"] = new if isinstance(s["Action"], list) else new[0]
+    assert rewritten
+    check_secret_reads(tpl)
