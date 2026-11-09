@@ -257,3 +257,18 @@
         value. For Vajra in infra/ (Slice 8b): every Lambda gets the
         SLACKKB_ settings; only the Lambdas above get the ARN env vars and
         secretsmanager:GetSecretValue on those ARNs alone.
+- D-021 (2026-11-09) Citation format in answers (amends Slice 5/7's
+        "Notes: <ids>" line). Vajra picked the brief and the time zone.
+        After the answer, a "Notes:" line, then one line per cited note
+        in the order the model cited them:
+        "• <date and time>: <brief>". The date and time is Slack's date
+        token <!date^EPOCH^{date_short_pretty} {time}|FALLBACK>, so each
+        reader sees the note's created_at in their own Slack time zone;
+        FALLBACK is "YYYY-MM-DD HH:MM UTC". The brief is the start of the
+        note's own text: whitespace collapsed to single spaces, at most 80
+        characters, cut at the last space before the limit with "…"
+        appended when cut, then Slack-escaped like the answer (note text
+        is data, D-016). No extra model call. A created_at that doesn't
+        parse shows as its escaped raw string; a cited id with no
+        retrieved note (qa already drops these) shows as the id. Note ids
+        no longer appear in the reply; logs keep them (D-019).
