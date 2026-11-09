@@ -32,7 +32,7 @@ Answer = Callable[[str, list[OkfNote]], QaResult]
 def slack_client(settings: Settings) -> SlackClient:
     """The worker's Slack client: a 10 s timeout, unlike views.open's 2.5 s (D-017)."""
     return SlackClient(
-        settings.slack_bot_token, make_urllib_transport(SLACK_TIMEOUT_SECONDS)
+        settings.require("slack_bot_token"), make_urllib_transport(SLACK_TIMEOUT_SECONDS)
     )
 
 

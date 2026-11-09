@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from conftest import (
     BOT_TOKEN,
@@ -11,7 +13,9 @@ from conftest import (
 )
 from pydantic import SecretStr, ValidationError
 
-from slackkb.config import Settings
+from slackkb import capture, events, modal, thread
+from slackkb.config import MissingSecret, Settings
+from slackkb.slack_api import SlackClient
 
 CAPTURE_QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/123456789012/slackkb-capture-test"
 
@@ -29,10 +33,13 @@ def test_reads_prefixed_env():
     assert s.capture_queue_url == CAPTURE_QUEUE_URL
 
 
-def test_missing_signing_secret_fails(monkeypatch):
+def test_missing_signing_secret_is_none(monkeypatch):
     monkeypatch.delenv("SLACKKB_SIGNING_SECRET")
-    with pytest.raises(ValidationError):
-        Settings()
+    s = Settings()
+    assert s.signing_secret is None
+    with pytest.raises(MissingSecret) as exc:
+        s.require("signing_secret")
+    assert str(exc.value) == "signing_secret is not configured"
 
 
 def test_reads_vectors_settings():
@@ -85,14 +92,16 @@ def test_dotenv_not_read(monkeypatch, tmp_path):
     monkeypatch.delenv("SLACKKB_SIGNING_SECRET")
     (tmp_path / ".env").write_text("SLACKKB_SIGNING_SECRET=from-dotenv\n")
     monkeypatch.chdir(tmp_path)
-    with pytest.raises(ValidationError):
-        Settings()
+    assert Settings().signing_secret is None
 
 
-def test_missing_slack_bot_token_fails(monkeypatch):
+def test_missing_slack_bot_token_is_none(monkeypatch):
     monkeypatch.delenv("SLACKKB_SLACK_BOT_TOKEN")
-    with pytest.raises(ValidationError):
-        Settings()
+    s = Settings()
+    assert s.slack_bot_token is None
+    with pytest.raises(MissingSecret) as exc:
+        s.require("slack_bot_token")
+    assert str(exc.value) == "slack_bot_token is not configured"
 
 
 def test_reads_qa_model_id():
@@ -123,3 +132,94 @@ def test_missing_events_settings_fail(monkeypatch, name):
     monkeypatch.delenv(name)
     with pytest.raises(ValidationError):
         Settings()
+
+
+def test_require_returns_the_secret():
+    s = Settings()
+    assert isinstance(s.require("signing_secret"), SecretStr)
+    assert s.require("signing_secret").get_secret_value() == SIGNING_SECRET
+    assert s.require("slack_bot_token").get_secret_value() == BOT_TOKEN
+    with pytest.raises(ValueError):
+        s.require("other")
+
+
+class _Recorder:
+    """A fake that records any attribute access or call."""
+
+    def __init__(self):
+        self.calls = []
+
+    def __getattr__(self, name):
+        self.calls.append(name)
+        raise AssertionError(f"unexpected use: {name}")
+
+    def __call__(self, *args, **kwargs):
+        self.calls.append("call")
+        raise AssertionError("unexpected call")
+
+
+def test_capture_without_signing_secret_raises(monkeypatch, slack_request):
+    monkeypatch.delenv("SLACKKB_SIGNING_SECRET")
+    table, sqs = _Recorder(), _Recorder()
+    with pytest.raises(MissingSecret):
+        capture.handle(
+            slack_request(), table=table, sqs=sqs, settings=Settings(), now=int(time.time())
+        )
+    assert table.calls == [] and sqs.calls == []
+
+
+def test_modal_without_signing_secret_raises(monkeypatch, slack_interaction):
+    monkeypatch.delenv("SLACKKB_SIGNING_SECRET")
+    table, slack = _Recorder(), _Recorder()
+    with pytest.raises(MissingSecret):
+        modal.handle(
+            slack_interaction("block_actions"),
+            table=table,
+            slack=slack,
+            settings=Settings(),
+            now=int(time.time()),
+        )
+    assert table.calls == [] and slack.calls == []
+
+
+def test_events_without_signing_secret_raises(monkeypatch, slack_event):
+    monkeypatch.delenv("SLACKKB_SIGNING_SECRET")
+    events_table, sqs = _Recorder(), _Recorder()
+    with pytest.raises(MissingSecret):
+        events.handle(
+            slack_event(),
+            events_table=events_table,
+            sqs=sqs,
+            settings=Settings(),
+            now=int(time.time()),
+        )
+    assert events_table.calls == [] and sqs.calls == []
+
+
+def test_handlers_with_signing_secret_still_verify(
+    slack_request, slack_interaction, slack_event
+):
+    now = int(time.time())
+    bad = "wrong-secret"
+    fake = _Recorder()
+    s = Settings()
+    assert capture.handle(
+        slack_request(secret=bad), table=fake, sqs=fake, settings=s, now=now
+    )["statusCode"] == 401
+    assert modal.handle(
+        slack_interaction("block_actions", secret=bad),
+        table=fake,
+        slack=fake,
+        settings=s,
+        now=now,
+    )["statusCode"] == 401
+    assert events.handle(
+        slack_event(secret=bad), events_table=fake, sqs=fake, settings=s, now=now
+    )["statusCode"] == 401
+
+
+def test_thread_slack_client_without_bot_token_raises(monkeypatch):
+    assert isinstance(thread.slack_client(Settings()), SlackClient)
+    monkeypatch.delenv("SLACKKB_SLACK_BOT_TOKEN")
+    with pytest.raises(MissingSecret):
+        thread.slack_client(Settings())
