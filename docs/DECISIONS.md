@@ -53,8 +53,17 @@
         and the foundation model it routes to
         (arn:aws:bedrock:*::foundation-model/anthropic.<id>). The tutorial's
         ARN (cicd-spec.md:164) mixes the two forms and is not reused.
-        Exact <id> is unverified: look it up with the slackkb-dev SSO
-        profile before Slice 8.
+        Pinned 2026-11-09 (Slice 8d): us.anthropic.claude-haiku-5-5, listed
+        by `aws bedrock list-inference-profiles` in us-east-2 with the
+        slackkb-dev profile (an `aws login` profile on Vajra's IAM user,
+        not SSO); the template's QaModelBaseId is anthropic.claude-haiku-5-5.
+        The foundation-model ARN it routes to is checked with
+        `aws bedrock get-inference-profile` before the first deploy.
+        Output cap (2026-11-09, cost): every Converse call sets
+        inferenceConfig maxTokens = 1024. A response that stops on
+        max_tokens is an LlmError (logged), never a partial answer.
+        Cost at dev volume ≈ $1/month (per call; $0 idle); the $175/month
+        figure is OpenSearch Serverless, ruled out in D-008.
 - D-013 Severity modal (Slice 3) opens from a "Set severity" button in the
         /bnote ack, not from capture. The button's block_actions payload
         carries a fresh trigger_id; modal.py verifies the signature, calls
