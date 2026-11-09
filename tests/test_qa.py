@@ -71,6 +71,7 @@ def test_request_shape(client):
             {"role": "user", "content": [{"text": qa.build_user_message("what?", notes)}]}
         ],
         "toolConfig": {"tools": [qa.ANSWER_TOOL], "toolChoice": {"tool": {"name": "answer"}}},
+        "inferenceConfig": {"maxTokens": 1024},
     }
     schema = qa.ANSWER_TOOL["toolSpec"]["inputSchema"]["json"]
     assert set(schema["required"]) == {"answer", "cited_note_ids"}

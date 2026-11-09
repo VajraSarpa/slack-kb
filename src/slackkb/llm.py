@@ -7,6 +7,8 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 log = logging.getLogger(__name__)
 
+MAX_TOKENS = 1024  # D-012 output cap
+
 
 class LlmError(RuntimeError):
     """Bedrock failed or did not return the forced tool call."""
@@ -45,10 +47,14 @@ def ask(client: Any, *, model_id: str, system: str, user: str, tool: dict) -> di
                 "tools": [tool],
                 "toolChoice": {"tool": {"name": tool["toolSpec"]["name"]}},
             },
+            inferenceConfig={"maxTokens": MAX_TOKENS},
         )
     except (ClientError, BotoCoreError) as exc:
         raise LlmError(f"bedrock call failed: {type(exc).__name__}") from exc
     _log_usage(model_id, response.get("usage"))
+    if response.get("stopReason") == "max_tokens":
+        log.warning("bedrock stopped on max_tokens, call=converse model_id=%s", model_id)
+        raise LlmError("response stopped on max_tokens")
     content = response.get("output", {}).get("message", {}).get("content", [])
     for block in content:
         if "toolUse" in block:

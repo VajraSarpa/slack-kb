@@ -184,7 +184,13 @@ def test_real_retrieve_wired(notes_bucket, vectors_table):
         stub.add_response(
             "converse",
             converse_out,
-            {"modelId": QA_MODEL_ID, "system": ANY, "messages": ANY, "toolConfig": ANY},
+            {
+                "modelId": QA_MODEL_ID,
+                "system": ANY,
+                "messages": ANY,
+                "toolConfig": ANY,
+                "inferenceConfig": {"maxTokens": 1024},
+            },
         )
         resp = thread.handle(
             {"Records": [record(job)]}, retrieve=retrieve, answer=answer, slack=slack
