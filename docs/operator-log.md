@@ -345,3 +345,6 @@ Logged after the fact; times approximate (local).
 - 22:51:49–23:04:45 EST Vajra ran the 8c command (tee `docs/runs/s8c.md`): personal_1712bfec, hard_flagged after attempt 2, $0.9383 notional, $0 spent. `prama eval`: 0 findings.
 - Claude in the worktree: 513 passed, ruff clean; 4 template mutants (scratchpad), 2 killed, 2 survive (mixed-case secretsmanager action; policy on another bucket), confirming review 2's f1 and f2. Globals mutant fails `test_secret_arn_env_per_function` directly. Template restored; worktree diff is the test file only. [manual verification]
 - Recommendation: `prama apply personal_1712bfec --accept-flag`, then a tests-only follow-up for the two survivors. [judgment; deferred to Vajra]
+- Claude's apply command carried `--repo`/`--profile`, which `prama apply` doesn't take: Vajra got an option error; nothing ran, no event. Corrected to `prama apply personal_1712bfec --accept-flag`. [operator slip]
+- By 23:12 EST Vajra applied: merged `05325ce`; Claude on main: 513 passed, ruff clean. [manual verification]
+- 23:14 wrote `prompts/s8c-fu-case.md` (tests only: case-folded secretsmanager actions, policy Bucket ref; red first via 3 new MUTANTS + 1 pass test). Caught a mutant in my own draft that fails before and after the fix (no red evidence) and turned it into a should-pass test. [judgment]
