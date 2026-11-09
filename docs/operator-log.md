@@ -334,3 +334,6 @@ Logged after the fact; times approximate (local).
 - 19:59–20:02 EST Vajra merged Prama `v3/spec-check-shell` (`8bec885`), committed the 8a-2 records (`7e7fd84`), reran 8a-2 (tee `docs/runs/s8a2-r2.md`): personal_182a6b1b, ready attempt 2, $0.6233 notional, $0 spent. [observed]
 - Claude in the worktree: entry.py read against D-020 line by line (secret sets, cache-after-success, 10 s notify transport, explicit None for unfetched secrets); 482 passed, ruff clean; 15 operator mutants, 14 killed (scratchpad mut8a2.py). Recommendation: apply as is. [manual verification; judgment]
 - By 20:32 EST (start not logged) `prama apply personal_182a6b1b` (Vajra): apply review PASS, 0 findings, merged `16afff9`; Claude reran main: 482 passed, ruff clean. Slice 8a done. [observed]
+
+## 2026-11-08 — Slice 8b template (Claude, on Vajra's ask)
+- 20:36–20:42 EST drafted `infra/template.yaml` from entry.py, config.py, store/vectors/dedup/blob/queue call sites and D-004/006/008/011/012/014/017/018/020; `cfn-lint infra/template.yaml` exit 0; scripted check: no IAM action contains `*`. `sam` not installed here, so not built. [judgment; Vajra reads it]

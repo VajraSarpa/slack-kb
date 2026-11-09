@@ -203,6 +203,8 @@ Settled already: Slice 1 file names follow the ladder (`models`, `slack_verify`,
 
 ## Deviations from the plan
 
+- 2026-11-08 20:42: **Claude drafted `infra/template.yaml` (Slice 8b) on Vajra's "draft the infra/template.yaml for me"** (D-005 says human-authored; Vajra reads it before 8c/8d). `cfn-lint` exit 0. Choices Vajra should check: one IAM role per function (no SAM policy templates, so no managed policy brings `Resource: "*"`); secrets created outside the stack, ARNs passed as parameters (no value in CFN); `QaModelBaseId` parameter, app gets `us.<id>`; queue visibility 6× timeout, maxReceiveCount 3 (capture → DLQ ≤ 9 min, D-018); thread gets `s3:ListBucket` on `notes/*` so a missing note is NoSuchKey; no bucket versioning (D-014 deletes); notes/vectors table + bucket Retain; build needs `uv export --no-dev --no-hashes --no-emit-project -o src/requirements.txt` first. For 8c's `test_no_wildcard_iam`: the remaining `*`s are log-stream `:*`, `notes/*`, D-012's `foundation-model` region `*`, and the bucket's Deny `Principal: "*"`; none is a wildcard action or `Resource: "*"`.
+
 - 2026-10-23 night: Pramā runs paused until 2026-11-01 (OpenRouter key hit its $10 cap; no funds until then). Gap spent on Prama harness fixes. Leaves Nov 1–11 for Slices 4, 5, 6, 7, 9, 2b.
 
 - 2026-10-23 night: **standing delegation (Vajra): Claude writes every human-owned file** (DECISIONS, SLICES, conftest, fixtures, infra) without asking each time; asks first only on judgment calls. Under it: D-014 (option chosen by Vajra: S3 = content only), SLICES row 4, conftest `notes_bucket`, `pyyaml` dep (Vajra ran `uv add`), Slice 4 prompt.

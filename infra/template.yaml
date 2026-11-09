@@ -1,0 +1,487 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SlackKB (Slice 8b). Six Lambdas on slackkb.entry.<name>_handler (D-020),
+  capture and question queues with redrive DLQs (D-004, D-017, D-018), notes /
+  events / note_vectors tables (D-006, D-011, D-008), notes bucket (D-014).
+  Every function has its own role: only the actions and resources it uses, no
+  wildcard action, no Resource "*". Secret values never pass through this
+  template; the secrets are created outside it and passed in by ARN (D-020).
+
+# Build: SAM's python builder reads src/requirements.txt (not committed):
+#   uv export --no-dev --no-hashes --no-emit-project -o src/requirements.txt
+#   sam build -t infra/template.yaml
+
+Parameters:
+  SigningSecretArn:
+    Type: String
+    AllowedPattern: "^arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:.+$"
+    Description: Secrets Manager ARN; SecretString is the Slack signing secret.
+  SlackBotTokenArn:
+    Type: String
+    AllowedPattern: "^arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:.+$"
+    Description: Secrets Manager ARN; SecretString is the xoxb- bot token.
+  QaModelBaseId:
+    Type: String
+    AllowedPattern: "^anthropic\\.[A-Za-z0-9.:-]+$"
+    Description: >
+      D-012 foundation model id without the us. prefix, e.g.
+      anthropic.claude-haiku-5-5-<date>-v1:0. Look it up with the slackkb-dev
+      profile (Slice 8d). The app is given us.<this> (the inference profile).
+  EmbedModelId:
+    Type: String
+    Default: amazon.titan-embed-text-v2:0
+    AllowedPattern: "^amazon\\.titan-embed-[A-Za-z0-9.:-]+$"
+    Description: D-008 embedding model (512-d Titan Text Embeddings V2).
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [x86_64]
+    CodeUri: ../src
+    MemorySize: 512
+    Environment:
+      Variables:
+        SLACKKB_NOTES_TABLE: !Ref NotesTable
+        SLACKKB_NOTES_BUCKET: !Ref NotesBucket
+        SLACKKB_CAPTURE_QUEUE_URL: !Ref CaptureQueue
+        SLACKKB_QA_MODEL_ID: !Sub "us.${QaModelBaseId}"
+        SLACKKB_VECTORS_TABLE: !Ref VectorsTable
+        SLACKKB_EMBED_MODEL_ID: !Ref EmbedModelId
+        SLACKKB_EVENTS_TABLE: !Ref EventsTable
+        SLACKKB_QUESTION_QUEUE_URL: !Ref QuestionQueue
+
+Resources:
+  # ---------- HTTP ingress (Slack needs an answer within 3 s) ----------
+  SlackApi:
+    Type: AWS::Serverless::HttpApi
+
+  # ---------- Storage ----------
+  NotesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: note_id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: note_id, KeyType: HASH }
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  VectorsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: team_id, AttributeType: S }
+        - { AttributeName: note_id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: team_id, KeyType: HASH }
+        - { AttributeName: note_id, KeyType: RANGE }
+      SSESpecification:
+        SSEEnabled: true
+
+  EventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: event_id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: event_id, KeyType: HASH }
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  NotesBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      # No versioning: a FAILED note keeps no S3 object (D-014, D-018), and a
+      # noncurrent version would keep the text after notify deletes it.
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  NotesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref NotesBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !GetAtt NotesBucket.Arn
+              - !Sub "${NotesBucket.Arn}/*"
+            Condition:
+              Bool: { aws:SecureTransport: "false" }
+
+  # ---------- Queues ----------
+  # D-018: a capture job reaches the DLQ within maxReceiveCount x visibility
+  # = 3 x 180 s = 9 min, well inside response_url's 30 min. Visibility is
+  # 6 x the worker timeout (AWS guidance for SQS event sources).
+  CaptureDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+      VisibilityTimeout: 180
+      SqsManagedSseEnabled: true
+
+  CaptureQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 180
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt CaptureDlq.Arn
+        maxReceiveCount: 3
+
+  # D-017: questions have their own queue and DLQ. No DLQ consumer: a failed
+  # question is logged by thread (D-019) and kept 14 days for a look.
+  QuestionDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  QuestionQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 360
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt QuestionDlq.Arn
+        maxReceiveCount: 3
+
+  # ---------- Functions ----------
+  CaptureFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-capture"
+      Handler: slackkb.entry.capture_handler
+      Timeout: 10
+      Role: !GetAtt CaptureRole.Arn
+      Environment:
+        Variables:
+          SIGNING_SECRET_ARN: !Ref SigningSecretArn
+      Events:
+        SlashCommand:
+          Type: HttpApi
+          Properties: { ApiId: !Ref SlackApi, Method: POST, Path: /slack/commands }
+
+  ModalFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-modal"
+      Handler: slackkb.entry.modal_handler
+      Timeout: 10
+      Role: !GetAtt ModalRole.Arn
+      Environment:
+        Variables:
+          SIGNING_SECRET_ARN: !Ref SigningSecretArn
+          SLACK_BOT_TOKEN_ARN: !Ref SlackBotTokenArn
+      Events:
+        Interaction:
+          Type: HttpApi
+          Properties: { ApiId: !Ref SlackApi, Method: POST, Path: /slack/interactions }
+
+  EventsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-events"
+      Handler: slackkb.entry.events_handler
+      Timeout: 10
+      Role: !GetAtt EventsRole.Arn
+      Environment:
+        Variables:
+          SIGNING_SECRET_ARN: !Ref SigningSecretArn
+      Events:
+        SlackEvent:
+          Type: HttpApi
+          Properties: { ApiId: !Ref SlackApi, Method: POST, Path: /slack/events }
+
+  WorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-worker"
+      Handler: slackkb.entry.worker_handler
+      Timeout: 30
+      Role: !GetAtt WorkerRole.Arn
+      Events:
+        CaptureJobs:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt CaptureQueue.Arn
+            BatchSize: 10
+            FunctionResponseTypes: [ReportBatchItemFailures]
+
+  NotifyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-notify"
+      Handler: slackkb.entry.notify_handler
+      Timeout: 30
+      Role: !GetAtt NotifyRole.Arn
+      Events:
+        CaptureFailures:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt CaptureDlq.Arn
+            BatchSize: 10
+            FunctionResponseTypes: [ReportBatchItemFailures]
+
+  ThreadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-thread"
+      Handler: slackkb.entry.thread_handler
+      Timeout: 60
+      Role: !GetAtt ThreadRole.Arn
+      Environment:
+        Variables:
+          SLACK_BOT_TOKEN_ARN: !Ref SlackBotTokenArn
+      Events:
+        Questions:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt QuestionQueue.Arn
+            BatchSize: 5
+            FunctionResponseTypes: [ReportBatchItemFailures]
+
+  # ---------- Log groups (named, so each role can be scoped to its own) ----------
+  CaptureLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-capture", RetentionInDays: 30 }
+  ModalLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-modal", RetentionInDays: 30 }
+  EventsLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-events", RetentionInDays: 30 }
+  WorkerLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-worker", RetentionInDays: 30 }
+  NotifyLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-notify", RetentionInDays: 30 }
+  ThreadLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-thread", RetentionInDays: 30 }
+
+  # ---------- Roles: one per function, least privilege ----------
+  # Every role: write its own log group only. ":*" is the log-stream suffix,
+  # the narrowest form CloudWatch Logs accepts.
+  CaptureRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: capture
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub "${CaptureLogs.Arn}"
+              - Effect: Allow   # store.put_if_absent, store.delete_if_captured
+                Action: [dynamodb:PutItem, dynamodb:DeleteItem]
+                Resource: !GetAtt NotesTable.Arn
+              - Effect: Allow   # queue.send_capture_job
+                Action: sqs:SendMessage
+                Resource: !GetAtt CaptureQueue.Arn
+              - Effect: Allow   # D-020: signing secret only
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref SigningSecretArn
+
+  ModalRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: modal
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub "${ModalLogs.Arn}"
+              - Effect: Allow   # store.get_note, store.set_severity
+                Action: [dynamodb:GetItem, dynamodb:UpdateItem]
+                Resource: !GetAtt NotesTable.Arn
+              - Effect: Allow   # D-020: both secrets
+                Action: secretsmanager:GetSecretValue
+                Resource: [!Ref SigningSecretArn, !Ref SlackBotTokenArn]
+
+  EventsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: events
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub "${EventsLogs.Arn}"
+              - Effect: Allow   # dedup.claim, dedup.release
+                Action: [dynamodb:PutItem, dynamodb:DeleteItem]
+                Resource: !GetAtt EventsTable.Arn
+              - Effect: Allow   # queue.send_question_job
+                Action: sqs:SendMessage
+                Resource: !GetAtt QuestionQueue.Arn
+              - Effect: Allow   # D-020: signing secret only
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref SigningSecretArn
+
+  WorkerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: worker
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub "${WorkerLogs.Arn}"
+              - Effect: Allow   # SQS event source
+                Action: [sqs:ReceiveMessage, sqs:DeleteMessage, sqs:GetQueueAttributes]
+                Resource: !GetAtt CaptureQueue.Arn
+              - Effect: Allow   # store.get_note, store.route_note
+                Action: [dynamodb:GetItem, dynamodb:UpdateItem]
+                Resource: !GetAtt NotesTable.Arn
+              - Effect: Allow   # blob.put_note, blob.delete_note (D-014 key prefix)
+                Action: [s3:PutObject, s3:DeleteObject]
+                Resource: !Sub "${NotesBucket.Arn}/notes/*"
+              - Effect: Allow   # vectors.put_vector, vectors.delete_vector
+                Action: [dynamodb:PutItem, dynamodb:DeleteItem]
+                Resource: !GetAtt VectorsTable.Arn
+              - Effect: Allow   # embed.embed_text (D-008)
+                Action: bedrock:InvokeModel
+                Resource: !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${EmbedModelId}"
+
+  NotifyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: notify
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub "${NotifyLogs.Arn}"
+              - Effect: Allow   # SQS event source (the capture DLQ, D-018)
+                Action: [sqs:ReceiveMessage, sqs:DeleteMessage, sqs:GetQueueAttributes]
+                Resource: !GetAtt CaptureDlq.Arn
+              - Effect: Allow   # store.transition_status, store.get_note
+                Action: [dynamodb:GetItem, dynamodb:UpdateItem]
+                Resource: !GetAtt NotesTable.Arn
+              - Effect: Allow   # blob.delete_note
+                Action: s3:DeleteObject
+                Resource: !Sub "${NotesBucket.Arn}/notes/*"
+              - Effect: Allow   # vectors.delete_vector
+                Action: dynamodb:DeleteItem
+                Resource: !GetAtt VectorsTable.Arn
+
+  ThreadRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: thread
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub "${ThreadLogs.Arn}"
+              - Effect: Allow   # SQS event source
+                Action: [sqs:ReceiveMessage, sqs:DeleteMessage, sqs:GetQueueAttributes]
+                Resource: !GetAtt QuestionQueue.Arn
+              - Effect: Allow   # vectors.list_vectors
+                Action: dynamodb:Query
+                Resource: !GetAtt VectorsTable.Arn
+              - Effect: Allow   # blob.get_note
+                Action: s3:GetObject
+                Resource: !Sub "${NotesBucket.Arn}/notes/*"
+              - Effect: Allow   # so a missing note is NoSuchKey, not AccessDenied (blob._MISSING)
+                Action: s3:ListBucket
+                Resource: !GetAtt NotesBucket.Arn
+                Condition:
+                  StringLike: { s3:prefix: "notes/*" }
+              - Effect: Allow   # embed (D-008) and llm.ask Converse (D-012: exactly these two ARNs)
+                Action: bedrock:InvokeModel
+                Resource:
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/${EmbedModelId}"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.${QaModelBaseId}"
+                  - !Sub "arn:aws:bedrock:*::foundation-model/${QaModelBaseId}"
+              - Effect: Allow   # D-020: bot token only
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref SlackBotTokenArn
+
+Outputs:
+  SlashCommandUrl:
+    Description: Slack slash command (/bnote) Request URL
+    Value: !Sub "https://${SlackApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/slack/commands"
+  InteractivityUrl:
+    Description: Slack Interactivity Request URL
+    Value: !Sub "https://${SlackApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/slack/interactions"
+  EventsUrl:
+    Description: Slack Events API Request URL (app_mention)
+    Value: !Sub "https://${SlackApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/slack/events"
