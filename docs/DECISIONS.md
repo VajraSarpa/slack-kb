@@ -272,3 +272,18 @@
         parse shows as its escaped raw string; a cited id with no
         retrieved note (qa already drops these) shows as the id. Note ids
         no longer appear in the reply; logs keep them (D-019).
+        Amended 2026-11-09 (Vajra, after the first live answers): the
+        brief repeated what the answer had just said, so it is dropped.
+        Each line is now "• <date and time> in <#CHANNEL_ID>", the
+        channel the note was saved in; Slack renders <#C…> as a channel
+        link and it pings no one. The channel part is left out when
+        channel_id isn't a plain Slack id (A–Z, 0–9). The date token and
+        its fallbacks are unchanged; a created_at that raises ValueError or
+        OverflowError when parsed shows as its escaped raw string.
+        Severity (Vajra, same day): each line ends " · <SEVERITY>" (LOW,
+        MEDIUM, HIGH, …, the value the modal set; LOW if never set), read
+        from the notes table at answer time with store.get_note, since
+        S3 holds content only and severity can change (D-009, D-014). The
+        thread role gains dynamodb:GetItem on the notes table only. If the
+        read fails or the note row is missing, the line has no severity
+        part and a WARNING names the note_id; the answer is still posted.
