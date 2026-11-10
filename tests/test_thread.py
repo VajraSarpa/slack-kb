@@ -269,7 +269,53 @@ def test_notes_line_order_and_absent_when_no_ids():
     )
     result = QaResult(answer="ok", cited_note_ids=[])
     _, _, transport = run([record(make_job())], Fakes(result=result))
-    assert transport.posted(POST_MESSAGE_URL)[0]["text"] == "ok"
+    assert transport.posted(POST_MESSAGE_URL)[0]["text"] == (
+        "ok\n\nSearched 1 note for \"why are orders timing out?\"; none cited."
+    )
+
+
+def test_uncited_answer_names_query_and_count():
+    notes = [make_note("n1", "one"), make_note("n2", "two")]
+    assert reply_for(notes, [], answer="The notes don't say.") == (
+        "The notes don't say.\n\n"
+        "Searched 2 notes for \"why are orders timing out?\"; none cited."
+    )
+
+
+def test_uncited_one_note_is_singular():
+    text = reply_for([make_note()], [])
+    assert text.endswith('Searched 1 note for "why are orders timing out?"; none cited.')
+    assert "1 notes" not in text
+
+
+def test_uncited_query_escaped():
+    job = make_job(question="<!channel> & <@U1>")
+    result = QaResult(answer="ok", cited_note_ids=[])
+    _, _, transport = run([record(job)], Fakes(notes=[make_note()], result=result))
+    assert transport.posted(POST_MESSAGE_URL)[0]["text"].endswith(
+        'Searched 1 note for "&lt;!channel&gt; &amp; &lt;@U1&gt;"; none cited.'
+    )
+
+
+def test_uncited_answer_logged(caplog):
+    notes = [make_note("n1", "one"), make_note("n2", "two")]
+    with caplog.at_level(logging.DEBUG, logger=LOGGER):
+        reply_for(notes, [])
+    infos = [r.getMessage() for r in caplog.records if r.levelno == logging.INFO]
+    matching = [m for m in infos if "answer cited no notes" in m]
+    assert len(matching) == 1
+    assert "event_id=Ev1" in matching[0]
+    assert "notes=2" in matching[0]
+    assert warnings(caplog) == []
+
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG, logger=LOGGER):
+        reply_for(notes, ["n1"])
+    assert not any("answer cited no notes" in r.getMessage() for r in caplog.records)
+
+
+def test_cited_answer_has_no_searched_line():
+    assert "Searched" not in reply_for([make_note()], ["n1"])
 
 
 def test_citation_shows_date_channel_and_severity():
@@ -331,7 +377,10 @@ def test_answer_kept_when_no_note_ids():
 def test_longer_id_replaced_whole_when_shorter_id_is_its_prefix():
     notes = [make_note("n1", "one"), make_note("n1.x", "two")]
     text = reply_for(notes, [], answer="see n1.x and n1.")
-    assert text == "see a saved note and a saved note."
+    assert text == (
+        "see a saved note and a saved note.\n\n"
+        "Searched 2 notes for \"why are orders timing out?\"; none cited."
+    )
 
 
 def test_replaced_id_logged_once(caplog):

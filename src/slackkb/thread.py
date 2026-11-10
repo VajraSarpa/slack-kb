@@ -153,6 +153,15 @@ def _process(
                 slack.chat_post_ephemeral(job.channel, job.user, job.thread_ts, QA_ERROR_TEXT)
                 return True
             text = _reply_text(result, notes, severity_of)
+            if not result.cited_note_ids:
+                count = len(notes)
+                text += (
+                    f"\n\nSearched {count} {'note' if count == 1 else 'notes'}"
+                    f' for "{slack_escape(job.question)}"; none cited.'
+                )
+                logger.info(
+                    "answer cited no notes, event_id=%s notes=%d", job.event_id, count
+                )
             slack.chat_post_message(job.channel, job.thread_ts, text)
     except Exception as exc:
         logger.warning("question failed, %s, event_id=%s", type(exc).__name__, job.event_id)
