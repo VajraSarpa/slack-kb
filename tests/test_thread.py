@@ -306,6 +306,50 @@ def test_overflowing_date_falls_back():
     assert text == f"ok\n\nNotes:\n• {created} in <#C1>"
 
 
+def test_note_id_in_answer_is_replaced():
+    notes = [make_note("n1", "one"), make_note("n2", "two")]
+    text = reply_for(
+        notes, ["n1"], answer="See n1 & <n2> and n10, xn1, n1_b; n1."
+    )
+    assert text == (
+        "See a saved note &amp; &lt;a saved note&gt; and n10, xn1, n1_b; a saved note."
+        f"\n\nNotes:\n• {when()} in <#C1>"
+    )
+
+
+def test_ungiven_id_left_alone():
+    text = reply_for([make_note("n1")], ["n1"], answer="n9 and n1")
+    assert text.startswith("n9 and a saved note\n\nNotes:")
+
+
+def test_answer_kept_when_no_note_ids():
+    result = QaResult(answer="a < b", cited_note_ids=[])
+    assert thread._reply_text(result, []) == "a &lt; b"
+    assert thread._reply_text(result, [make_note("")]) == "a &lt; b"
+
+
+def test_longer_id_replaced_whole_when_shorter_id_is_its_prefix():
+    notes = [make_note("n1", "one"), make_note("n1.x", "two")]
+    text = reply_for(notes, [], answer="see n1.x and n1.")
+    assert text == "see a saved note and a saved note."
+
+
+def test_replaced_id_logged_once(caplog):
+    notes = [make_note("n1", "one"), make_note("n2", "two")]
+    with caplog.at_level(logging.DEBUG, logger=LOGGER):
+        reply_for(notes, ["n1"], answer="n1 then n1 and n2")
+    logged = [m for m in warnings(caplog) if "note id in answer" in m]
+    assert len(logged) == 2
+    assert sum("n1" in m for m in logged) == 1
+    assert sum("n2" in m for m in logged) == 1
+    assert len(warnings(caplog)) == 2
+
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG, logger=LOGGER):
+        reply_for(notes, ["n1"], answer="no ids here")
+    assert warnings(caplog) == []
+
+
 def _raises(note_id):
     raise RuntimeError("lookup down")
 

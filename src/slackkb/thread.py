@@ -27,6 +27,8 @@ SLACK_TIMEOUT_SECONDS = 10.0
 
 QA_ERROR_TEXT = "Sorry, I couldn't answer that. Please try again."
 
+SAVED_NOTE = "a saved note"
+
 _CHANNEL_ID = re.compile(r"[A-Z0-9]+")
 
 Retrieve = Callable[[str, str], list[OkfNote]]
@@ -84,10 +86,31 @@ def _severity_part(note_id: str, severity_of: SeverityOf | None) -> str:
     return " · " + slack_escape(severity)
 
 
+def _redact_note_ids(answer: str, notes: list[OkfNote]) -> str:
+    """Replace each given note's id, as a whole token, with "a saved note" (D-021)."""
+    ids = sorted({n.note_id for n in notes if n.note_id}, key=len, reverse=True)
+    if not ids:
+        return answer
+    pattern = re.compile(
+        r"(?<![\w-])(" + "|".join(re.escape(i) for i in ids) + r")(?![\w-])"
+    )
+    seen: list[str] = []
+
+    def swap(match: re.Match[str]) -> str:
+        if match.group(1) not in seen:
+            seen.append(match.group(1))
+        return SAVED_NOTE
+
+    redacted = pattern.sub(swap, answer)
+    for note_id in seen:
+        logger.warning("note id in answer, note_id=%s", note_id)
+    return redacted
+
+
 def _reply_text(
     result: QaResult, notes: list[OkfNote], severity_of: SeverityOf | None = None
 ) -> str:
-    text = slack_escape(result.answer)
+    text = slack_escape(_redact_note_ids(result.answer, notes))
     if result.cited_note_ids:
         by_id = {note.note_id: note for note in notes}
         text += "\n\nNotes:"
