@@ -314,6 +314,44 @@ def test_uncited_answer_logged(caplog):
     assert not any("answer cited no notes" in r.getMessage() for r in caplog.records)
 
 
+def info_messages(caplog):
+    return [r.getMessage() for r in caplog.records if r.levelno == logging.INFO]
+
+
+def test_uncited_log_uses_job_event_id(caplog):
+    notes = [make_note("n1", "one"), make_note("n2", "two")]
+    result = QaResult(answer="ok", cited_note_ids=[])
+    with caplog.at_level(logging.DEBUG, logger=LOGGER):
+        run([record(make_job(event_id="Ev42"))], Fakes(notes=notes, result=result))
+    matching = [m for m in info_messages(caplog) if "answer cited no notes" in m]
+    assert len(matching) == 1
+    assert "event_id=Ev42" in matching[0]
+    assert "Ev1" not in matching[0]
+    assert matching[0] == "answer cited no notes, event_id=Ev42 notes=2"
+
+
+def test_question_answered_logged(caplog):
+    notes = [make_note("n1", "one"), make_note("n2", "two")]
+    result = QaResult(answer="ok", cited_note_ids=["n1"])
+    with caplog.at_level(logging.DEBUG, logger=LOGGER):
+        run([record(make_job(event_id="Ev42"))], Fakes(notes=notes, result=result))
+    matching = [m for m in info_messages(caplog) if "question answered" in m]
+    assert len(matching) == 1
+    assert "event_id=Ev42" in matching[0]
+    assert "notes=2" in matching[0]
+    assert matching[0] == "question answered, event_id=Ev42 notes=2"
+
+
+def test_question_answered_logged_when_no_notes(caplog):
+    with caplog.at_level(logging.DEBUG, logger=LOGGER):
+        run([record(make_job(event_id="Ev42"))], Fakes(notes=[]))
+    matching = [m for m in info_messages(caplog) if "question answered" in m]
+    assert len(matching) == 1
+    assert "event_id=Ev42" in matching[0]
+    assert "notes=0" in matching[0]
+    assert matching[0] == "question answered, event_id=Ev42 notes=0"
+
+
 def test_cited_answer_has_no_searched_line():
     assert "Searched" not in reply_for([make_note()], ["n1"])
 
