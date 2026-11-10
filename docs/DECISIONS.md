@@ -287,3 +287,12 @@
         thread role gains dynamodb:GetItem on the notes table only. If the
         read fails or the note row is missing, the line has no severity
         part and a WARNING names the note_id; the answer is still posted.
+        Amended 2026-11-10 (Vajra, after the live poison test, where an
+        answer's prose named a raw note id): the qa system prompt tells the
+        model never to write a note id in the answer text, only in
+        cited_note_ids; and the reply replaces each occurrence of a given
+        note's id in the answer text with "a saved note" before escaping,
+        as a whole token only (not touching a letter, digit, "_" or "-" on
+        either side), and logs one WARNING per replaced id naming the
+        note_id (logs keep ids, D-019). The Notes: lines are unchanged,
+        including the bare id shown for a cited id with no retrieved note.
