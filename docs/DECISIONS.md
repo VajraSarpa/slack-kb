@@ -91,7 +91,7 @@
         body. Frontmatter carries only fields that never change: note_id,
         team_id, channel_id, user_id, created_at. Severity and status stay
         in DynamoDB only, so the modal (D-013) and status moves (D-009)
-        never touch S3 and nothing drifts. Readers that need severity join
+        never write to S3 and nothing drifts. Readers that need severity join
         on note_id. Frontmatter is written with yaml.safe_dump and read
         with yaml.safe_load (pyyaml is a direct dependency); note text is
         never put in frontmatter, and a body containing "---" or YAML-like
@@ -103,7 +103,16 @@
         removes text from the DynamoDB item (same conditional update), so
         S3 holds the only copy of a routed note's content; readers get text
         from S3. A redelivered ROUTED note is done: nothing is rewritten.
-        A FAILED note keeps its text (it never reached S3).
+        A FAILED note keeps its text in DynamoDB, the only copy: notify
+        deletes any S3 object (D-018).
+        Amended 2026-11-10 (Vajra): "never write to S3" was "never touch
+        S3", which read as no reads either. Any reader, the modal included,
+        may read a note's text from S3 through blob.py. Nothing keeps a
+        second copy of a routed note's text to save that read: no DynamoDB
+        attribute, no other table, no cache that outlives the request. The
+        note's own Slack messages may carry its text (e.g. the ack's "Set
+        severity" button value), and the modal may show text from that
+        payload: that copy is Slack's, not ours.
 - D-015 (2026-11-04, confirmed by Vajra) A failed
         enqueue leaves no note behind. Found by the Sārathi C11 run: when
         capture writes CAPTURED and the SQS send fails, the user gets the
