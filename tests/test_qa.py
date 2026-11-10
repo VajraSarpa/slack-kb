@@ -169,6 +169,12 @@ def test_system_prompt_has_no_user_text():
     assert "data" in lowered and "instruction" in lowered and "cite" in lowered
 
 
+def test_system_prompt_forbids_ids_in_answer():
+    lowered = qa.SYSTEM_PROMPT.lower()
+    assert "never write a note id" in lowered
+    assert "cite only ids" in lowered
+
+
 def test_bedrock_error_raises_qa_error(client):
     with Stubber(client) as stub:
         stub.add_client_error("converse", service_error_code="ThrottlingException")
