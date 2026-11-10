@@ -296,3 +296,16 @@
         either side), and logs one WARNING per replaced id naming the
         note_id (logs keep ids, D-019). The Notes: lines are unchanged,
         including the bare id shown for a cited id with no retrieved note.
+- D-022 (2026-11-10) An answer that cites no notes says what was
+        searched (Phase 5: every "found nothing" answer carries its query).
+        Vajra OK'd Claude's draft. When retrieval returns notes but the
+        answer cites none (cited_note_ids empty after qa drops unknown
+        ids), the reply is the answer as now (ids replaced, escaped,
+        D-021), then a blank line, then
+        'Searched N notes for "<question>"; none cited.' N is the number
+        of notes retrieved ("1 note" when N is 1), the question
+        Slack-escaped like the answer. One INFO line is logged:
+        "answer cited no notes, event_id=<id> notes=<N>". The empty-
+        retrieval reply ('No notes match "<question>".') and replies that
+        cite notes are unchanged. Fencing retrieved notes as data (the
+        other Phase 5 item) already holds: D-016, D-021.
