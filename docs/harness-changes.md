@@ -51,7 +51,7 @@ One change per line. Each cites ledger rows by session id (`docs/task-ledger.md`
 ## Open (Claude's proposals; none decided)
 
 ### Slow checks
-1. Diff-basis `--mutate` still reruns every project check per mutant (≈3.5–5 min per attempt; 2 × 3.5 min of a 17-minute run). Run only the tests that import the mutated module, the way the traced basis does. Rows: 150f0a7c, f1bfaeb7, 08178cb0.
+1. Diff-basis `--mutate` still reruns every project check per mutant (≈3.5–5 min per attempt; 2 × 3.5 min of a 17-minute run). Run only the tests that import the mutated module, the way the traced basis does. Rows: 150f0a7c, f1bfaeb7, 08178cb0. **Built 2026-11-09 on Prama `v3/narrow-mutants` (tests that import the mutated file; the full checks still decide a survivor): 278.6→37.7 s, 239.6→47.6 s, 327.9→154.2 s on the three rows, same verdicts; evidence in Prama `docs/v3-log.md`.**
 
 ### Misclassified tiers
 2. None of the tiers caused harm. Of 1,475 gate decisions in the slack-kb logs (T0 459, T1 614, T2 401, T4 1 deny, T3 0), the only questionable one is `rm -rf` of `__pycache__` at T2, three times, always inside the worktree. No change; listed so the 0 T3 count is read correctly: no task ever tried the network, so the T3 boundary was never tested here. Rows: ca90ad61, 601d2df4, 150f0a7c.
