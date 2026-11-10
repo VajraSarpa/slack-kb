@@ -69,7 +69,7 @@ One change per line. Each cites ledger rows by session id (`docs/task-ledger.md`
 8. A tests-only run over a non-Python subject (YAML) gets no automatic red evidence: 0 traced files, 0 mutants. Let the tracer follow files the tests open, and mutate those lines; or have the claim check mark a "failed before" claim with no attached run as unbacked. Rows: 1712bfec, 9e08772b.
 
 ### Āpta guard
-9. The injection detector fired on the project's own DECISIONS.md ("the system prompt is a fixed constant"), and `apply` then needed `--accept-findings` on clean work. Skip the scan for hits in human-owned spec files of a trusted project, and attach the hit's path and line. Rows: b71ecc5d.
+9. The injection detector fired on the project's own DECISIONS.md ("the system prompt is a fixed constant"), and `apply` then needed `--accept-findings` on clean work. Skip the scan for hits in human-owned spec files of a trusted project, and attach the hit's path and line. Rows: b71ecc5d. **Built 2026-11-09 on Prama `v3/own-spec`, not merged; evidence in Prama `docs/v3-log.md`.**
 10. The original poisoned-README test is still untested on an organic read: in three runs (both drivers and Claude Code) no side ever opened the README. Rows: 85e3fad9, a02d84ab.
 
 ### OKF notes the agent kept needing
