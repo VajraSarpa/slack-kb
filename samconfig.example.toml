@@ -1,0 +1,15 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "slackkb-dev"
+resolve_s3 = true
+s3_prefix = "slackkb-dev"
+region = "us-east-2"
+profile = "slackkb-dev"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "SigningSecretArn=\"arn:aws:secretsmanager:us-east-2:<ACCOUNT_ID>:secret:slackkb-dev/signing-secret-<SUFFIX>\" SlackBotTokenArn=\"arn:aws:secretsmanager:us-east-2:<ACCOUNT_ID>:secret:slackkb-dev/bot-token-<SUFFIX>\" QaModelBaseId=\"amazon.nova-2-lite-v1:0\" EmbedModelId=\"amazon.titan-embed-text-v2:0\""
+image_repositories = []
+
+[default.global.parameters]
+region = "us-east-2"

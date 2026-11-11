@@ -25,6 +25,10 @@ Built test-first, one slice at a time ([`docs/SLICES.md`](docs/SLICES.md)), and 
 
 ## How it works
 
+![How SlackKB works](docs/diagrams/architecture.svg)
+
+<details><summary>Text version</summary>
+
 ```
 Slack /bnote ──► capture ──► DynamoDB notes (CAPTURED) ──► ack + "Set severity"
                     └──► SQS capture queue ──► worker ──► S3 note (OKF) + Titan vector ──► ROUTED
@@ -33,6 +37,8 @@ Slack button ──► modal ──► views.open / view_submission ──► se
 @slackkb question ──► events ──► SQS question queue ──► thread
                                    └──► embed → retrieve notes → Bedrock answer ──► reply in thread
 ```
+
+</details>
 
 Six Lambdas, one per handler in `entry.py`, each with its own least-privilege role. Each AWS or Slack boundary has exactly one module: `store.py` (DynamoDB), `queue.py` (SQS), `blob.py` (S3), `vectors.py` and `embed.py` (vectors, Titan), `llm.py` (Bedrock Converse), `slack_api.py` (Slack Web API), `slack_verify.py` (request signatures). Clients are passed in, never created at import. Settings come from `SLACKKB_`-prefixed environment variables; the two Slack secrets are read from Secrets Manager by ARN at cold start (D-020). The answer model is Amazon Nova 2 Lite (D-012; this AWS account is refused Anthropic models), capped at 1,024 output tokens.
 

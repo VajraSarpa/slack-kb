@@ -1,0 +1,165 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" width="1000" height="560" role="img" aria-labelledby="title desc">
+<title id="title">How SlackKB works</title>
+<desc id="desc">Three flows on AWS. Capture: /bnote is verified, stored in DynamoDB and acked, then an SQS worker writes the note to S3 with a Titan vector; after 3 failed tries a DLQ notifies the user. Severity: a button opens a modal. Questions: @slackkb questions go through SQS, retrieve notes, and Bedrock answers in thread.</desc>
+<style>
+:root, svg {
+  --bg:#fbfaf7; --card:#ffffff; --ink:#1f2328; --muted:#59636e; --line:#8c959f; --border:#d0d7de;
+  --tok:#d97706; --pass:#1a7f37; --fail:#cf222e; --warn:#9a6700; --acc:#4f46e5;
+  --slack:#7c3aed; --lam:#c2410c; --store:#1d4ed8; --q:#0f766e;
+}
+@media (prefers-color-scheme: dark) {
+  :root, svg {
+    --bg:#0d1117; --card:#161b22; --ink:#e6edf3; --muted:#9198a1; --line:#6e7681; --border:#30363d;
+    --tok:#f59e0b; --pass:#3fb950; --fail:#f85149; --warn:#d29922; --acc:#818cf8;
+    --slack:#a78bfa; --lam:#fb923c; --store:#60a5fa; --q:#2dd4bf;
+  }
+}
+text { font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; fill:var(--ink); }
+.bg { fill:var(--bg); }
+.box { fill:var(--card); stroke:var(--border); stroke-width:1.2; }
+.t { font-size:14px; font-weight:600; }
+.s { font-size:11px; fill:var(--muted); }
+.lbl { font-size:10.5px; fill:var(--muted); font-style:italic; }
+.cap { font-size:10.5px; font-weight:700; letter-spacing:.12em; fill:var(--muted); }
+.ln { fill:none; stroke:var(--line); stroke-width:1.4; }
+.flow { fill:none; stroke:var(--tok); stroke-width:1.6; stroke-dasharray:3 9; opacity:.55;
+        animation:dash 1.2s linear infinite; }
+.halo { fill:none; stroke:var(--bg); stroke-width:6; }
+.ah { fill:var(--line); }
+.tok { fill:var(--tok); }
+.glow { fill:var(--tok); opacity:.25; }
+@keyframes dash { to { stroke-dashoffset:-12; } }
+@media (prefers-reduced-motion: reduce) {
+  .flow, .tok, .glow, .hl { display:none; }
+  .badge { display:none; }
+}
+</style>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="bg" x="0" y="0" width="1000" height="560" rx="14"/>
+
+<text class="cap" x="20" y="58">CAPTURE</text>
+<text class="cap" x="20" y="338">SEVERITY</text>
+<text class="cap" x="20" y="443">QUESTIONS</text>
+<text class="cap" x="980" y="58" text-anchor="end">SAM STACK · 6 LAMBDAS</text>
+<path class="ln" d="M165,100 L205,100" marker-end="url(#ah)"/>
+<path class="flow" d="M165,100 L205,100"/>
+<path class="ln" d="M355,100 L395,100" marker-end="url(#ah)"/>
+<path class="flow" d="M355,100 L395,100"/>
+<path class="ln" d="M545,100 L585,100" marker-end="url(#ah)"/>
+<path class="flow" d="M545,100 L585,100"/>
+<path class="ln" d="M280.0,127.0 L280.0,185 L395,185" marker-end="url(#ah)"/>
+<path class="flow" d="M280.0,127.0 L280.0,185 L395,185"/>
+<path class="ln" d="M545,185 L585,185" marker-end="url(#ah)"/>
+<path class="flow" d="M545,185 L585,185"/>
+<path class="ln" d="M755,185 L795,185" marker-end="url(#ah)"/>
+<path class="flow" d="M755,185 L795,185"/>
+<path class="ln" d="M470.0,212.0 L470.0,243.0" marker-end="url(#ah)" style="stroke:var(--fail)"/>
+<path class="ln" d="M545,270 L585,270" marker-end="url(#ah)" style="stroke:var(--fail)"/>
+<path class="ln" d="M755,270 L795,270" marker-end="url(#ah)" style="stroke:var(--fail)"/>
+<path class="ln" d="M165,380 L205,380" marker-end="url(#ah)"/>
+<path class="flow" d="M165,380 L205,380"/>
+<path class="ln" d="M355,380 L395,380" marker-end="url(#ah)"/>
+<path class="flow" d="M355,380 L395,380"/>
+<path class="ln" d="M545,380 L585,380" marker-end="url(#ah)"/>
+<path class="flow" d="M545,380 L585,380"/>
+<path class="ln" d="M165,485 L205,485" marker-end="url(#ah)"/>
+<path class="flow" d="M165,485 L205,485"/>
+<path class="ln" d="M355,485 L395,485" marker-end="url(#ah)"/>
+<path class="flow" d="M355,485 L395,485"/>
+<path class="ln" d="M545,485 L585,485" marker-end="url(#ah)"/>
+<path class="flow" d="M545,485 L585,485"/>
+<path class="ln" d="M755,485 L795,485" marker-end="url(#ah)"/>
+<path class="flow" d="M755,485 L795,485"/>
+<text class="lbl" x="478.0" y="231.5">after 3 tries</text>
+<text class="lbl" x="565.0" y="92" text-anchor="middle">ack</text>
+<rect class="box" x="20" y="73.0" width="145" height="54" rx="10"/>
+<rect x="20" y="81.0" width="4" height="38" rx="2" style="fill:var(--slack)"/>
+<text class="t" x="92.5" y="97.0" text-anchor="middle" style="font-size:13.5px">/bnote</text>
+<text class="s" x="92.5" y="113.0" text-anchor="middle">Slack command</text>
+<rect class="box" x="205" y="73.0" width="150" height="54" rx="10"/>
+<rect x="205" y="81.0" width="4" height="38" rx="2" style="fill:var(--lam)"/>
+<text class="t" x="280.0" y="97.0" text-anchor="middle" style="font-size:13.5px">capture λ</text>
+<text class="s" x="280.0" y="113.0" text-anchor="middle">signature checked first</text>
+<rect class="box" x="395" y="73.0" width="150" height="54" rx="10"/>
+<rect x="395" y="81.0" width="4" height="38" rx="2" style="fill:var(--store)"/>
+<text class="t" x="470.0" y="97.0" text-anchor="middle" style="font-size:13.5px">DynamoDB</text>
+<text class="s" x="470.0" y="113.0" text-anchor="middle">note · CAPTURED</text>
+<rect class="box" x="585" y="73.0" width="170" height="54" rx="10"/>
+<rect x="585" y="81.0" width="4" height="38" rx="2" style="fill:var(--slack)"/>
+<text class="t" x="670.0" y="97.0" text-anchor="middle" style="font-size:13.5px">ack + button</text>
+<text class="s" x="670.0" y="113.0" text-anchor="middle">&quot;Set severity&quot;</text>
+<rect class="box" x="395" y="158.0" width="150" height="54" rx="10"/>
+<rect x="395" y="166.0" width="4" height="38" rx="2" style="fill:var(--q)"/>
+<text class="t" x="470.0" y="182.0" text-anchor="middle" style="font-size:13.5px">SQS capture</text>
+<text class="s" x="470.0" y="198.0" text-anchor="middle">queue</text>
+<rect class="box" x="585" y="158.0" width="170" height="54" rx="10"/>
+<rect x="585" y="166.0" width="4" height="38" rx="2" style="fill:var(--lam)"/>
+<text class="t" x="670.0" y="182.0" text-anchor="middle" style="font-size:13.5px">worker λ</text>
+<text class="s" x="670.0" y="198.0" text-anchor="middle">CAPTURED → ROUTED</text>
+<rect class="box" x="795" y="158.0" width="185" height="54" rx="27" style="stroke:var(--pass)"/>
+<text class="t" x="887.5" y="182.0" text-anchor="middle" style="font-size:13.5px">S3 note + vector</text>
+<text class="s" x="887.5" y="198.0" text-anchor="middle">OKF markdown · Titan</text>
+<rect class="box" x="395" y="243.0" width="150" height="54" rx="10"/>
+<rect x="395" y="251.0" width="4" height="38" rx="2" style="fill:var(--q)"/>
+<text class="t" x="470.0" y="267.0" text-anchor="middle" style="font-size:13.5px">DLQ</text>
+<text class="s" x="470.0" y="283.0" text-anchor="middle">dead-letter queue</text>
+<rect class="box" x="585" y="243.0" width="170" height="54" rx="10"/>
+<rect x="585" y="251.0" width="4" height="38" rx="2" style="fill:var(--lam)"/>
+<text class="t" x="670.0" y="267.0" text-anchor="middle" style="font-size:13.5px">notify λ</text>
+<text class="s" x="670.0" y="283.0" text-anchor="middle">marks FAILED</text>
+<rect class="box" x="795" y="243.0" width="185" height="54" rx="27" style="stroke:var(--fail)"/>
+<text class="t" x="887.5" y="267.0" text-anchor="middle" style="font-size:13.5px">private notice</text>
+<text class="s" x="887.5" y="283.0" text-anchor="middle">the user is told</text>
+<rect class="box" x="20" y="353.0" width="145" height="54" rx="10"/>
+<rect x="20" y="361.0" width="4" height="38" rx="2" style="fill:var(--slack)"/>
+<text class="t" x="92.5" y="377.0" text-anchor="middle" style="font-size:13.5px">button click</text>
+<text class="s" x="92.5" y="393.0" text-anchor="middle">Slack interaction</text>
+<rect class="box" x="205" y="353.0" width="150" height="54" rx="10"/>
+<rect x="205" y="361.0" width="4" height="38" rx="2" style="fill:var(--lam)"/>
+<text class="t" x="280.0" y="377.0" text-anchor="middle" style="font-size:13.5px">modal λ</text>
+<text class="s" x="280.0" y="393.0" text-anchor="middle">views.open · submit</text>
+<rect class="box" x="395" y="353.0" width="150" height="54" rx="10"/>
+<rect x="395" y="361.0" width="4" height="38" rx="2" style="fill:var(--store)"/>
+<text class="t" x="470.0" y="377.0" text-anchor="middle" style="font-size:13.5px">DynamoDB</text>
+<text class="s" x="470.0" y="393.0" text-anchor="middle">severity set</text>
+<rect class="box" x="585" y="353.0" width="170" height="54" rx="27" style="stroke:var(--pass)"/>
+<text class="t" x="670.0" y="377.0" text-anchor="middle" style="font-size:13.5px">modal closes</text>
+<text class="s" x="670.0" y="393.0" text-anchor="middle">or shows a field error</text>
+<rect class="box" x="20" y="458.0" width="145" height="54" rx="10"/>
+<rect x="20" y="466.0" width="4" height="38" rx="2" style="fill:var(--slack)"/>
+<text class="t" x="92.5" y="482.0" text-anchor="middle" style="font-size:13.5px">@slackkb</text>
+<text class="s" x="92.5" y="498.0" text-anchor="middle">question in Slack</text>
+<rect class="box" x="205" y="458.0" width="150" height="54" rx="10"/>
+<rect x="205" y="466.0" width="4" height="38" rx="2" style="fill:var(--lam)"/>
+<text class="t" x="280.0" y="482.0" text-anchor="middle" style="font-size:13.5px">events λ</text>
+<text class="s" x="280.0" y="498.0" text-anchor="middle">Events API</text>
+<rect class="box" x="395" y="458.0" width="150" height="54" rx="10"/>
+<rect x="395" y="466.0" width="4" height="38" rx="2" style="fill:var(--q)"/>
+<text class="t" x="470.0" y="482.0" text-anchor="middle" style="font-size:13.5px">SQS question</text>
+<text class="s" x="470.0" y="498.0" text-anchor="middle">queue</text>
+<rect class="box" x="585" y="458.0" width="170" height="54" rx="10"/>
+<rect x="585" y="466.0" width="4" height="38" rx="2" style="fill:var(--lam)"/>
+<text class="t" x="670.0" y="482.0" text-anchor="middle" style="font-size:13.5px">answer λ</text>
+<text class="s" x="670.0" y="498.0" text-anchor="middle">embed → retrieve → Bedrock</text>
+<rect class="box" x="795" y="458.0" width="185" height="54" rx="27" style="stroke:var(--pass)"/>
+<text class="t" x="887.5" y="482.0" text-anchor="middle" style="font-size:13.5px">reply in thread</text>
+<text class="s" x="887.5" y="498.0" text-anchor="middle">cites note ids</text>
+<rect x="20" y="525" width="10" height="10" rx="3" style="fill:var(--slack)"/>
+<text class="s" x="36" y="534">Slack</text>
+<rect x="82.0" y="525" width="10" height="10" rx="3" style="fill:var(--lam)"/>
+<text class="s" x="98.0" y="534">Lambda</text>
+<rect x="150.4" y="525" width="10" height="10" rx="3" style="fill:var(--store)"/>
+<text class="s" x="166.4" y="534">DynamoDB / S3</text>
+<rect x="263.6" y="525" width="10" height="10" rx="3" style="fill:var(--q)"/>
+<text class="s" x="279.6" y="534">SQS</text>
+<rect x="312.8" y="525" width="10" height="10" rx="3" style="fill:var(--pass)"/>
+<text class="s" x="328.8" y="534">result</text>
+<rect x="381.20000000000005" y="525" width="10" height="10" rx="3" style="fill:var(--fail)"/>
+<text class="s" x="397.20000000000005" y="534">failure path</text>
+<text class="s" x="980" y="534" text-anchor="end">answer model: Amazon Nova 2 Lite · embeddings: Titan v2</text>
+<g opacity="0"><circle class="glow" r="12.100000000000001" cx="0" cy="0"/><circle class="tok" r="5.5" cx="0" cy="0"/><animateMotion dur="6s" begin="0s" repeatCount="indefinite" path="M92.5,100 L670.0,100" keyPoints="0;1;1" keyTimes="0;0.4500;1" calcMode="linear"/><animate attributeName="opacity" dur="6s" begin="0s" repeatCount="indefinite" keyTimes="0.0000;0.0300;0.4500;0.5100;1.0000" values="0;1;1;0;0"/></g>
+<g opacity="0"><circle class="glow" r="12.100000000000001" cx="0" cy="0"/><circle class="tok" r="5.5" cx="0" cy="0"/><animateMotion dur="6s" begin="1.2s" repeatCount="indefinite" path="M280.0,100 L280.0,185 L887.5,185" keyPoints="0;1;1" keyTimes="0;0.5500;1" calcMode="linear"/><animate attributeName="opacity" dur="6s" begin="1.2s" repeatCount="indefinite" keyTimes="0.0000;0.0300;0.5500;0.6100;1.0000" values="0;1;1;0;0"/></g>
+<g opacity="0"><circle class="glow" r="12.100000000000001" cx="0" cy="0" style="fill:var(--fail)"/><circle class="tok" r="5.5" cx="0" cy="0" style="fill:var(--fail)"/><animateMotion dur="18s" begin="7.2s" repeatCount="indefinite" path="M470.0,185 L470.0,270 L887.5,270" keyPoints="0;1;1" keyTimes="0;0.2000;1" calcMode="linear"/><animate attributeName="opacity" dur="18s" begin="7.2s" repeatCount="indefinite" keyTimes="0.0000;0.0300;0.2000;0.2600;1.0000" values="0;1;1;0;0"/></g>
+<g opacity="0"><circle class="glow" r="12.100000000000001" cx="0" cy="0"/><circle class="tok" r="5.5" cx="0" cy="0"/><animateMotion dur="9s" begin="3.0s" repeatCount="indefinite" path="M92.5,380 L670.0,380" keyPoints="0;1;1" keyTimes="0;0.3500;1" calcMode="linear"/><animate attributeName="opacity" dur="9s" begin="3.0s" repeatCount="indefinite" keyTimes="0.0000;0.0300;0.3500;0.4100;1.0000" values="0;1;1;0;0"/></g>
+<g opacity="0"><circle class="glow" r="12.100000000000001" cx="0" cy="0"/><circle class="tok" r="5.5" cx="0" cy="0"/><animateMotion dur="8s" begin="1.8s" repeatCount="indefinite" path="M92.5,485 L887.5,485" keyPoints="0;1;1" keyTimes="0;0.6000;1" calcMode="linear"/><animate attributeName="opacity" dur="8s" begin="1.8s" repeatCount="indefinite" keyTimes="0.0000;0.0300;0.6000;0.6600;1.0000" values="0;1;1;0;0"/></g>
+</svg>
