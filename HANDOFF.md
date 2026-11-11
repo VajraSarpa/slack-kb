@@ -2,6 +2,9 @@
 
 Two things under test at once: **Pramā as a working harness** and **SlackKB as a clean rebuild**. Keep them separable — Pramā defects go in `docs/prama-field-notes.md`, SlackKB decisions in `docs/DECISIONS.md`. This file outranks memory on current state.
 
+## Pending: going public (added 2026-11-10)
+Plan: make this repo public this month. Gates and scan results are in `docs/release-checklist.md` (branch `release-prep`). Secrets scan is clean; the real AWS account id is in history (`samconfig.toml`, early `cicd-spec.md`) and needs a `git filter-repo` rewrite plus force push, which is Vajra's call. `samconfig.toml` is now local-only (copy `samconfig.example.toml`).
+
 ## Who
 Vajra Sarpa. Short, direct answers. Disagree when warranted, no flattery. One clarifying question at a time. Beginner-level terminal: **one command per message, each starting with `cd <absolute folder> &&`; wait for "done" before the next.** Never a list that spans two folders (main repo vs a worktree), never "steps 2–7 are the same". He said on 10-22 this has confused him many times (pushed from the wrong folder). Pastes VS Code screenshots; check tabs/explorer before predicting failure. He runs git himself; you read `git status` first.
 
