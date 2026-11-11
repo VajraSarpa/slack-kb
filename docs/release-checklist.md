@@ -10,6 +10,7 @@ Plan agreed 2026-11-10: make slack-kb public this month. Each gate below must be
 | 4 | `reference/tutorial/` provenance | **Pass, kept.** Vajra's own April 2026 tutorial (the PDF names him as author); only the ids above changed. |
 | 5 | IP terms reviewed | **Vajra, outside the repo.** |
 | 6 | Re-scan after rewrite | **Clean (2026-11-10).** gitleaks v8.21.2 on the rewritten `main`: 0 findings. The 12-digit grep finds only `000000000000` and `123456789012`. No hits left for the channel id or domain. |
+| 7 | Images checked by eye | **Fails (found 2026-11-10).** The text scans can't read images. `docs/runs/poison-live-1.png` and `-2.png` (the only images in history) show the browser's URL bar, with the real workspace and channel ids, and the bookmarks bar. Fix: replace both in every commit with crops of the Slack thread pane, then force push. |
 
 ## Rewrite (done 2026-11-10)
 

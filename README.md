@@ -4,9 +4,16 @@ A Slack knowledge base for incident notes, built on AWS. Someone types `/bnote <
 
 The repo has a second job: it is the test bed for **Pramā**, a coding-agent harness. Much of the code was written through Pramā, and paired tasks were also run with plain Claude Code under the same rules; the results are compared in `docs/`.
 
+## What this shows
+
+- **A serverless app built the way production code should be.** Three HTTP API routes and three SQS workers on Lambda, a dead-letter queue that tells the user when their note fails, DynamoDB conditional writes so a Slack retry never makes a duplicate, notes in S3, and Bedrock answers grounded in retrieved notes that cite the ones they used. Slack signatures are checked before any parsing, each Lambda has its own least-privilege role, and secrets stay in Secrets Manager. Deployed with SAM and working end to end in Slack.
+- **Test-first, fully offline.** Each slice has a written acceptance test ([`docs/SLICES.md`](docs/SLICES.md)). 548 tests run with the network blocked (`moto` for AWS, fakes for Slack and Bedrock).
+- **A coding agent measured, not just used.** Most of the code was written by Pramā, a coding-agent harness, held to written decisions ([`docs/DECISIONS.md`](docs/DECISIONS.md)). Every run is logged with its prompt, cost and outcome, and every failure is traced to its cause, whether harness or operator ([`docs/exit-review.md`](docs/exit-review.md)). Paired tasks against plain Claude Code were scored by blind review, and the table shows where Pramā lost ([`docs/comparison.md`](docs/comparison.md)).
+- **Prompt injection tested on the live bot.** Notes written to hijack the answer model were quoted as data, not obeyed (screenshots: [1](docs/runs/poison-live-1.png), [2](docs/runs/poison-live-2.png)).
+
 ## Status
 
-Built test-first, one slice at a time ([`docs/SLICES.md`](docs/SLICES.md)), and **deployed on AWS on 2026-11-09** (stack `slackkb-dev`, us-east-2), working end to end in a dev Slack workspace. 519 tests run offline (`moto` for AWS, fake clients for Slack and Bedrock).
+Built test-first, one slice at a time ([`docs/SLICES.md`](docs/SLICES.md)), and **deployed on AWS on 2026-11-09** (stack `slackkb-dev`, us-east-2), working end to end in a dev Slack workspace. 548 tests run offline (`moto` for AWS, fake clients for Slack and Bedrock).
 
 | Slice | What it does | State |
 |---|---|---|
