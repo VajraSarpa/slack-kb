@@ -139,9 +139,39 @@ def test_missing_object_skipped_and_logged(notes_bucket, vectors_table, client, 
     add_note(notes_bucket, vectors_table, "third", unit(0, 0.7))
     with caplog.at_level(logging.WARNING, logger="slackkb"):
         out = run(client, vectors_table, notes_bucket, unit(0), k=2)
-    # "third" does not replace the missing "ghost".
-    assert [n.note_id for n in out] == ["first"]
-    assert "ghost" in caplog.text
+    assert [n.note_id for n in out] == ["first", "third"]
+    warnings = [
+        r for r in caplog.records if r.levelno == logging.WARNING and r.name == "slackkb.retrieve"
+    ]
+    assert [r.getMessage() for r in warnings] == ["note object missing, skipped, note_id=ghost"]
+
+
+class RecordingBucket:
+    def __init__(self, bucket):
+        self._bucket = bucket
+        self.keys = []
+
+    def Object(self, key):  # noqa: N802 - mirrors the boto3 resource API
+        self.keys.append(key)
+        return self._bucket.Object(key)
+
+
+def test_stops_reading_at_k(notes_bucket, vectors_table, client):
+    add_note(notes_bucket, vectors_table, "top", unit(0, 0.9))
+    add_note(notes_bucket, vectors_table, "next", unit(0, 0.8))
+    add_note(notes_bucket, vectors_table, "last", unit(0, 0.7))
+    recording = RecordingBucket(notes_bucket)
+    out = run(client, vectors_table, recording, unit(0), k=1)
+    assert [n.note_id for n in out] == ["top"]
+    assert recording.keys == [f"notes/{TEAM}/top.md"]
+
+
+def test_ranking_runs_out_returns_what_exists(notes_bucket, vectors_table, client):
+    add_note(notes_bucket, vectors_table, "a", unit(0, 0.9))
+    put_vector(vectors_table, TEAM, "ghost", unit(0, 0.8))
+    add_note(notes_bucket, vectors_table, "b", unit(0, 0.7))
+    out = run(client, vectors_table, notes_bucket, unit(0), k=3)
+    assert [n.note_id for n in out] == ["a", "b"]
 
 
 @pytest.mark.parametrize("kind", ["client_error", "bad_body"])
