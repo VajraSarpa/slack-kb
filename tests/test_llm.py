@@ -208,6 +208,25 @@ def test_converse_usage_missing_warns(caplog):
         assert records[0].getMessage() == "bedrock usage missing, call=converse model_id=m"
 
 
+def _assert_usage_warns(caplog, usage):
+    caplog.set_level("INFO", logger="slackkb.llm")
+    resp = {**tool_response({"answer": "ok"}), "usage": usage}
+    result = llm.ask(FakeClient(resp), model_id="m", system="s", user="u", tool=TOOL)
+    assert result == {"answer": "ok"}
+    records = _usage_records(caplog)
+    assert len(records) == 1
+    assert records[0].levelname == "WARNING"
+    assert records[0].getMessage() == "bedrock usage missing, call=converse model_id=m"
+
+
+def test_converse_usage_negative_input_warns(caplog):
+    _assert_usage_warns(caplog, {"inputTokens": -1, "outputTokens": 1})
+
+
+def test_converse_usage_output_absent_warns(caplog):
+    _assert_usage_warns(caplog, {"inputTokens": 1})
+
+
 def test_converse_usage_line_has_no_prompt_text(client, caplog):
     caplog.set_level("DEBUG", logger="slackkb.llm")
     with Stubber(client) as stub:
