@@ -28,6 +28,11 @@
         move to S3 Vectors when a team passes ~5,000 notes or retrieval
         p95 exceeds 1 s; only retrieve.py and the worker's vector write
         change. The table is Vajra's to add in infra/ (Slice 8).
+        Amended 2026-11-12 (Vajra): retrieve returns up to k notes whose S3
+        objects exist. A missing object is logged (WARNING, with its
+        note_id) and skipped, and the next-ranked note takes its place, so
+        a stale vector no longer costs the answer a note. It stops at k
+        notes found or when the ranking runs out.
 - D-009 Note status: CAPTURED -> ROUTED, or FAILED after the DLQ.
         capture writes CAPTURED. The worker sets ROUTED when it finishes
         (Slice 2); the DLQ handler sets FAILED (Slice 2b). Each move is a
