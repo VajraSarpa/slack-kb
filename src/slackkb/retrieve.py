@@ -31,10 +31,12 @@ def retrieve(
     scored = [(sum(a * b for a, b in zip(query, vec, strict=True)), nid) for nid, vec in stored]
     scored.sort(key=lambda s: (-s[0], s[1]))
     notes: list[OkfNote] = []
-    for _, note_id in scored[:k]:
+    for _, note_id in scored:
         note = get_note(bucket, team_id, note_id)
         if note is None:
             logger.warning("note object missing, skipped, note_id=%s", note_id)
             continue
         notes.append(note)
+        if len(notes) == k:
+            break
     return notes
