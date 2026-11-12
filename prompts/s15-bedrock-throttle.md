@@ -1,0 +1,1 @@
+Does any code under src/ configure or handle Bedrock retries or throttling: a botocore Config, max_attempts or retry mode, or a catch for ThrottlingException? Cite file:line for each place. If there is none, say so and state exactly what you searched and where.
