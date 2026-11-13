@@ -507,6 +507,12 @@ def test_keyboard_interrupt_propagates(notes_table, notes_bucket, monkeypatch):
         _handle_v(_two_records(), table=notes_table, bucket=notes_bucket)
 
 
+def test_record_without_message_id_raises(notes_table, notes_bucket):
+    event = {"Records": [{"receiptHandle": "rh", "body": _job("a" * 32)}]}
+    with pytest.raises(KeyError):
+        _handle_v(event, table=notes_table, bucket=notes_bucket)
+
+
 class _DeleteFailingBucket:
     def __init__(self, bucket, exc):
         self.bucket = bucket
