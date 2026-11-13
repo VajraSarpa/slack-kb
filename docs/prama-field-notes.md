@@ -139,3 +139,9 @@ Topics to watch:
 - 13:45 personal_3bad521e: **the secret-file search guard, now visible on the terminal**: two whole-repo `search_files .` denied T3 ("search reaches a secret file"); the model narrowed to `src` and went on (observed via the new live lines).
 - 13:45 / 14:00: **same question, two correct answers** (observed): `worker.handle` (worker.py:172) vs `worker_handler` (entry.py:132, which calls it). The question ("the SQS worker's handler function") fits both; not a harness error.
 - 14:10 personal_9db0ccbb: **with SHELL_RULE the agent called `python -m pytest` directly** (observed, n=1); 23 earlier sessions had run AGENTS.md's `uv run …` into `uv: command not found`. It still piped pytest through `| tail -5` (exit code hidden), as in step 5; harmless here (tests passed), and the acceptance checks rerun them anyway.
+
+## 2026-11-13 — Samīkṣā step 7 (RAG vs grep)
+- **RAG added no accuracy on slack-kb** (observed, 48 asks): 24/24 correct both arms; grep found every answer. ~19% cheaper per ask with the index (fewer turns).
+- **Testimony-only answers appear with RAG** (observed): 5 index-arm answers rested on rag_search where grep was denied; all correct and labelled as testimony; the claim rule flagged the one inference with no perception (E3 r2), retry fit.
+- **The secret-file guard denied 76 whole-repo searches in 48 asks** (observed): Grep/search over `.` reaches `.env`; models narrow to `src/` and lose docs/tests reach. Friction worth an item (Vajra).
+- **Decided 17:23 (Vajra): RAG retired as optional and off by default** for slack-kb; the index built for the run was removed, so slack-kb runs stay grep-only as before.

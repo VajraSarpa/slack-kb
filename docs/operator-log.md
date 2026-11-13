@@ -401,3 +401,9 @@ Logged after the fact; times approximate (local).
 - personal_3bad521e (13:45), personal_06cc0a03 (13:59), personal_9db0ccbb (14:09) were run by Claude as the live checks for findings 1, 2 and 8, from `~/Projects/Prama` with `uv run prama …`. The Samīkṣā plan's working rules say Vajra runs live runs and each gets eval, ledger row, field notes and operator log; Claude did neither at the time. [operator mistake; said to Vajra 14:15]
 - 14:18 eval on all four (1, 0, 0, 0 findings); ask answers checked against grep (`entry.py:132`, `worker.py:172`); 9db0ccbb's worktree diff read (1 line, accurate) and its acceptance checks' result taken from the log. [manual verification]
 - personal_9db0ccbb's worktree `~/.prama/worktrees/personal_9db0ccbb` is not applied; Vajra to discard. [deferred to Vajra]
+
+## 2026-11-13 — Samīkṣā step 7
+- 14:47–14:56 truth written from grep/reading before any run; Vajra approved; sha256 recorded. [judgment]
+- 14:51 runner started by Claude in the background (Vajra approved the design, including Claude running it); no-index arm, `prama index` (1,059 chunks), index arm; 48 exit 0. [operator step]
+- scored blind (shuffled labels, key kept separate, unblinded after all 48 scores); eval on all 48. [manual verification]
+- `~/.prama/lance/slack-kb` left in place pending Vajra's step-7 verdict. [deferred to Vajra]
