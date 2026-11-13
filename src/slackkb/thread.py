@@ -182,7 +182,15 @@ def handle(
     failures = []
     for record in event.get("Records") or []:
         with obs.trace():
-            ok = _process(record, retrieve, answer, slack, severity_of)
+            try:
+                ok = _process(record, retrieve, answer, slack, severity_of)
+            except Exception as exc:  # D-023: fail only this record; class name only
+                logger.warning(
+                    "record failed, %s, message_id=%s",
+                    type(exc).__name__,
+                    record["messageId"],
+                )
+                ok = False
         if not ok:
             failures.append({"itemIdentifier": record["messageId"]})
     return {"batchItemFailures": failures}

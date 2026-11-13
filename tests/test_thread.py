@@ -12,7 +12,7 @@ from botocore.stub import ANY, Stubber
 from conftest import EMBED_MODEL_ID
 from pydantic import SecretStr
 
-from slackkb import blob, store, thread
+from slackkb import blob, obs, store, thread
 from slackkb.config import Settings
 from slackkb.embed import DIMENSIONS, EmbedError
 from slackkb.models import Note, QuestionJob, Severity
@@ -126,6 +126,48 @@ def run(records, fakes=None, transport=None, severity_of=None):
 
 def warnings(caplog):
     return [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+
+
+def _raising_for_m1(monkeypatch, exc):
+    """Make thread._process raise exc for m1; returns the trace ids current when it raised."""
+    real = thread._process
+    raised_in = []
+
+    def wrapper(rec, *args, **kwargs):
+        if rec["messageId"] == "m1":
+            raised_in.append(obs.trace_id())
+            raise exc
+        return real(rec, *args, **kwargs)
+
+    monkeypatch.setattr(thread, "_process", wrapper)
+    return raised_in
+
+
+def test_unexpected_error_fails_only_that_record(monkeypatch, caplog):
+    raised_in = _raising_for_m1(monkeypatch, RuntimeError("boom"))
+    caplog.set_level(logging.DEBUG, logger=LOGGER)
+    records = [
+        record(make_job(event_id="Ev1"), "m1"),
+        record(make_job(event_id="Ev2", thread_ts="1700000000.000200"), "m2"),
+    ]
+    resp, _, transport = run(records)
+    assert resp == {"batchItemFailures": [{"itemIdentifier": "m1"}]}
+    posted = transport.posted(POST_MESSAGE_URL)
+    assert [p["thread_ts"] for p in posted] == ["1700000000.000200"]
+    assert warnings(caplog) == ["record failed, RuntimeError, message_id=m1"]
+    # Logged inside m1's own trace (D-023), not after it closed.
+    (rec,) = [r for r in caplog.records if r.levelno == logging.WARNING]
+    (trace,) = raised_in
+    assert trace is not None
+    assert rec.slackkb_trace_id == trace
+
+
+def test_unexpected_error_text_not_logged(monkeypatch, caplog):
+    _raising_for_m1(monkeypatch, RuntimeError("SECRET note text"))
+    caplog.set_level(logging.DEBUG, logger=LOGGER)
+    run([record(make_job(), "m1"), record(make_job(event_id="Ev2"), "m2")])
+    assert "SECRET" not in caplog.text
+    assert all("SECRET" not in r.getMessage() for r in caplog.records)
 
 
 def test_reply_posts_in_thread_ts():

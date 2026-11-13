@@ -135,7 +135,15 @@ def handle(
     failures = []
     for record in event.get("Records") or []:
         with obs.trace():
-            ok = _process(record, table, bucket, vectors_table, post)
+            try:
+                ok = _process(record, table, bucket, vectors_table, post)
+            except Exception as exc:  # D-023: fail only this record; class name only
+                logger.warning(
+                    "record failed, %s, message_id=%s",
+                    type(exc).__name__,
+                    record["messageId"],
+                )
+                ok = False
         if not ok:
             failures.append({"itemIdentifier": record["messageId"]})
     return {"batchItemFailures": failures}

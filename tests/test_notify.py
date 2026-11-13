@@ -8,7 +8,7 @@ import pytest
 from botocore.exceptions import ClientError, EndpointConnectionError
 from conftest import MAX_RECEIVES
 
-from slackkb import blob, capture, notify
+from slackkb import blob, capture, notify, obs
 from slackkb.config import Settings
 from slackkb.models import CaptureJob, Note, NoteStatus
 from slackkb.slack_api import ResponseUrlError
@@ -128,6 +128,54 @@ def test_failed_note_notifies_user(
     assert by_text["note failed"].levelno == logging.INFO
     assert by_text["user notified"].levelno == logging.INFO
     assert all(r.levelno < logging.WARNING for r in _records(caplog))
+
+
+def _raising_for_m1(monkeypatch, exc):
+    """Make notify._process raise exc for m1; returns the trace ids current when it raised."""
+    real = notify._process
+    raised_in = []
+
+    def wrapper(rec, *args, **kwargs):
+        if rec["messageId"] == "m1":
+            raised_in.append(obs.trace_id())
+            raise exc
+        return real(rec, *args, **kwargs)
+
+    monkeypatch.setattr(notify, "_process", wrapper)
+    return raised_in
+
+
+def test_unexpected_error_fails_only_that_record(
+    monkeypatch, caplog, notes_table, notes_bucket, vectors_table
+):
+    caplog.set_level(logging.DEBUG, logger="slackkb.notify")
+    _seed(notes_table, notes_bucket, vectors_table, NOTE_ID)
+    _seed(notes_table, notes_bucket, vectors_table, OTHER_ID)
+    raised_in = _raising_for_m1(monkeypatch, RuntimeError("boom"))
+    post = Poster()
+    event = _event(_record("m1", NOTE_ID), _record("m2", OTHER_ID))
+    result = _run(event, notes_table, notes_bucket, vectors_table, post)
+    assert result == {"batchItemFailures": [{"itemIdentifier": "m1"}]}
+    assert get_note(notes_table, OTHER_ID).status is NoteStatus.FAILED
+    assert post.calls == [(RESPONSE_URL, EXPECTED_TEXT)]
+    warns = [r for r in _records(caplog) if r.levelno == logging.WARNING]
+    assert [r.getMessage() for r in warns] == ["record failed, RuntimeError, message_id=m1"]
+    # Logged inside m1's own trace (D-023), not after it closed.
+    (trace,) = raised_in
+    assert trace is not None
+    assert warns[0].slackkb_trace_id == trace
+
+
+def test_unexpected_error_text_not_logged(
+    monkeypatch, caplog, notes_table, notes_bucket, vectors_table
+):
+    caplog.set_level(logging.DEBUG, logger="slackkb")
+    _seed(notes_table, notes_bucket, vectors_table, OTHER_ID)
+    _raising_for_m1(monkeypatch, RuntimeError("SECRET note text"))
+    event = _event(_record("m1", NOTE_ID), _record("m2", OTHER_ID))
+    _run(event, notes_table, notes_bucket, vectors_table, Poster())
+    assert "SECRET" not in caplog.text
+    assert all("SECRET" not in r.getMessage() for r in caplog.records)
 
 
 def test_failed_text_is_fixed():
