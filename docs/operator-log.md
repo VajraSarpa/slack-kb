@@ -395,3 +395,9 @@ Logged after the fact; times approximate (local).
 - blind A/B: 6 packets, leak grep clean, key in a separate folder, unblinded after all six verdicts. [manual verification]
 - checkouts `~/Projects/sk-samiksha-*` kept until Vajra has read this; worktrees kept for scoring; nothing applied. [deferred to Vajra]
 - 22:15 Samīkṣā step 2 live check: Claude ran one C2 task (personal_5640a458) in the background; Vajra ran `prama apply --accept-flag --accept-findings` → refused (unfit-claim ending). Claude's mistake: didn't read preflight first. Replayed `landing.reusable` on the live log instead: reuse holds on real data. [manual verification; operator mistake]
+
+## 2026-11-13 — Samīkṣā step 5 fix item, live checks (backfilled 14:18 by Claude)
+- personal_38c327da (09:47) was run by Vajra; recorded in Prama `docs/v3-log.md` at the time, not here. [operator step missed; backfilled]
+- personal_3bad521e (13:45), personal_06cc0a03 (13:59), personal_9db0ccbb (14:09) were run by Claude as the live checks for findings 1, 2 and 8, from `~/Projects/Prama` with `uv run prama …`. The Samīkṣā plan's working rules say Vajra runs live runs and each gets eval, ledger row, field notes and operator log; Claude did neither at the time. [operator mistake; said to Vajra 14:15]
+- 14:18 eval on all four (1, 0, 0, 0 findings); ask answers checked against grep (`entry.py:132`, `worker.py:172`); 9db0ccbb's worktree diff read (1 line, accurate) and its acceptance checks' result taken from the log. [manual verification]
+- personal_9db0ccbb's worktree `~/.prama/worktrees/personal_9db0ccbb` is not applied; Vajra to discard. [deferred to Vajra]
