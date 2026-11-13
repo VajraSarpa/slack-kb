@@ -144,4 +144,5 @@ Topics to watch:
 - **RAG added no accuracy on slack-kb** (observed, 48 asks): 24/24 correct both arms; grep found every answer. ~19% cheaper per ask with the index (fewer turns).
 - **Testimony-only answers appear with RAG** (observed): 5 index-arm answers rested on rag_search where grep was denied; all correct and labelled as testimony; the claim rule flagged the one inference with no perception (E3 r2), retry fit.
 - **The secret-file guard denied 76 whole-repo searches in 48 asks** (observed): Grep/search over `.` reaches `.env`; models narrow to `src/` and lose docs/tests reach. Friction worth an item (Vajra).
+- **Correction (17:30):** the 76 denials came from botocore's public `cacert.pem` in git-ignored `.aws-sam/build/`, not `.env` (slack-kb has none). Fixed in Prama `v3/grep-ignored`: the guard skips what git ignores, since Claude Code's Grep does too (checked live). Live C2: 0 denials.
 - **Decided 17:23 (Vajra): RAG retired as optional and off by default** for slack-kb; the index built for the run was removed, so slack-kb runs stay grep-only as before.

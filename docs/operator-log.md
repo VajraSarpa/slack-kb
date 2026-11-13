@@ -407,3 +407,6 @@ Logged after the fact; times approximate (local).
 - 14:51 runner started by Claude in the background (Vajra approved the design, including Claude running it); no-index arm, `prama index` (1,059 chunks), index arm; 48 exit 0. [operator step]
 - scored blind (shuffled labels, key kept separate, unblinded after all 48 scores); eval on all 48. [manual verification]
 - `~/.prama/lance/slack-kb` left in place pending Vajra's step-7 verdict. [deferred to Vajra]
+- 17:23 Vajra approved retiring RAG; `~/.prama/lance/slack-kb` removed. [operator step]
+- 17:28–17:31 Claude checked live that Claude Code's Grep skips git-ignored files (scratch repo, worktree). [manual verification]
+- 17:34 live `prama ask` C2 on Prama `v3/grep-ignored`: 0 denials, correct, eval 0. [operator step]
