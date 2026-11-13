@@ -323,3 +323,14 @@
         retrieval reply ('No notes match "<question>".') and replies that
         cite notes are unchanged. Fencing retrieved notes as data (the
         other Phase 5 item) already holds: D-016, D-021.
+- D-023 (2026-11-12) An unexpected error in one SQS record fails only
+        that record (C11 blind-review Minor, open since 10-23). In each
+        queue handler (worker.handle, thread.handle, notify.handle), an
+        Exception the record's processing doesn't already handle is
+        caught for that record: one WARNING "record failed,
+        <ExceptionClass>, message_id=<id>" is logged inside the record's
+        trace, the record goes in batchItemFailures, and the rest of the
+        batch is processed as usual. The exception's text is never
+        logged (it can hold note text). Only Exception is caught; a
+        record with no messageId still raises. Errors _process already
+        handles keep their outcomes and log lines.
