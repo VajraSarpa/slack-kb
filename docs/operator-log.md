@@ -385,3 +385,13 @@ Logged after the fact; times approximate (local).
 - Claude's mistake: the prompt's TESTS section asked for no test of req 2 (trace) or req 5 (no messageId), and only one module for req 4; the spec gate said so before attempt 1 and both review flags landed there. A prompt whose TESTS cover every requirement would likely have passed in attempt 1. [judgment]
 - 2026-11-12 19:58–20:10 EST s21 (Claude operator, Vajra ran). After s20 apply (`458f01e`, `--accept-flag`), Claude wrote `prompts/s21-record-isolation-tests.md` (corrected req 2 before commit: the real _process reads messageId first, so "returns False" couldn't happen); Vajra committed `8f5654f`, ran `prama task ... --driver claude --review | tee docs/runs/s21.md` → personal_42c0a767 ready attempt 1. [judgment]
 - 20:09 Claude on the worktree: 564 passed, diff tests only, eval 0; Claude predicted "N > 0 need the new tests", Pramā printed 0; Claude's BaseException mutant showed the new tests do add kills in thread and notify (Pramā's line wrong for this diff). [manual verification]
+
+## 2026-11-12 — Samīkṣā step 1: comparison rerun (C2, C5, C11, C10)
+- 20:31 preflight: install editable (`_editable_impl_prama.pth`), so live on Prama main/branch; slack-kb clean `f27f4ac`; `slack-kb.yaml` present. [observed]
+- Vajra decided: rungs C2/C5/C11 + C10; 3 runs per rung; `--mutate` on. Claude's plan said `--mutate` is a default; it isn't (cli.py defaults it off). [judgment; Claude's mistake, said to Vajra]
+- goals/scope/checks copied from the 11-04 Sārathi `session_start`s into Prama `scratch/samiksha-s1/`; detached checkouts `~/Projects/sk-samiksha-{c2,c5,c11}`; one runner script, run by Claude in the background at Vajra's ask. [workaround; no `--base`]
+- 21:01 round 1 invalid for C2/C5 (memory guards at old bases); Claude proposed the base check, Vajra agreed; built test-first on Prama `v3/guard-base`, then reran C2/C5 × 3 (21:10–21:39). [judgment]
+- verified: checks rerun in the two ready worktrees (pytest pass, ruff clean); eval on all 9 sessions; C10 cites and absence against grep. [manual verification]
+- blind A/B: 6 packets, leak grep clean, key in a separate folder, unblinded after all six verdicts. [manual verification]
+- checkouts `~/Projects/sk-samiksha-*` kept until Vajra has read this; worktrees kept for scoring; nothing applied. [deferred to Vajra]
+- 22:15 Samīkṣā step 2 live check: Claude ran one C2 task (personal_5640a458) in the background; Vajra ran `prama apply --accept-flag --accept-findings` → refused (unfit-claim ending). Claude's mistake: didn't read preflight first. Replayed `landing.reusable` on the live log instead: reuse holds on real data. [manual verification; operator mistake]
