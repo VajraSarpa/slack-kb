@@ -178,6 +178,25 @@ def test_unexpected_error_text_not_logged(
     assert all("SECRET" not in r.getMessage() for r in caplog.records)
 
 
+def test_keyboard_interrupt_propagates(
+    monkeypatch, caplog, notes_table, notes_bucket, vectors_table
+):
+    caplog.set_level(logging.DEBUG, logger="slackkb")
+    _seed(notes_table, notes_bucket, vectors_table, OTHER_ID)
+    _raising_for_m1(monkeypatch, KeyboardInterrupt())
+    event = _event(_record("m1", NOTE_ID), _record("m2", OTHER_ID))
+    with pytest.raises(KeyboardInterrupt):
+        _run(event, notes_table, notes_bucket, vectors_table, Poster())
+    assert not any("record failed" in r.getMessage() for r in caplog.records)
+
+
+def test_record_without_message_id_raises(notes_table, notes_bucket, vectors_table):
+    rec = _record("m1")
+    del rec["messageId"]
+    with pytest.raises(KeyError):
+        _run(_event(rec), notes_table, notes_bucket, vectors_table, Poster())
+
+
 def test_failed_text_is_fixed():
     assert notify.FAILED_TEXT == EXPECTED_TEXT
 

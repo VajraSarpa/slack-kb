@@ -170,6 +170,19 @@ def test_unexpected_error_text_not_logged(monkeypatch, caplog):
     assert all("SECRET" not in r.getMessage() for r in caplog.records)
 
 
+def test_keyboard_interrupt_propagates(monkeypatch, caplog):
+    _raising_for_m1(monkeypatch, KeyboardInterrupt())
+    caplog.set_level(logging.DEBUG, logger=LOGGER)
+    with pytest.raises(KeyboardInterrupt):
+        run([record(make_job(), "m1"), record(make_job(event_id="Ev2"), "m2")])
+    assert not any("record failed" in m for m in warnings(caplog))
+
+
+def test_record_without_message_id_raises():
+    with pytest.raises(KeyError):
+        run([{"body": make_job().model_dump_json()}])
+
+
 def test_reply_posts_in_thread_ts():
     job = make_job()
     resp, fakes, transport = run([record(job)])
